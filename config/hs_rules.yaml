@@ -1,0 +1,253 @@
+# HS Code Rules for Stenter Spare Parts
+# Based on project_v4.md HS mapping
+
+# Primary HS Codes for our products
+hs_sets:
+  primary:
+    - code: "845190"
+      description: "Parts of textile finishing/dyeing/washing machinery"
+      notes: "Main code for stenter parts (gleitstein, kluppen, kette, etc.)"
+    
+    - code: "848330"
+      description: "Plain shaft bearings / bushings"
+      notes: "For buchsen (Torlonbuchse, plastic bushings)"
+    
+    - code: "848340"
+      description: "Ball or roller screws (assembly)"
+      notes: "For Spindel Mutter / spindle nuts"
+    
+    - code: "848390"
+      description: "Parts of heading 8483"
+      notes: "Fallback for 8483 parts not classified elsewhere"
+  
+  fallback:
+    - code: "392690"
+      description: "Other articles of plastics"
+      notes: "When item is clearly plastic and not machinery part"
+
+# Product -> HS Code Decision Tree
+decision_tree:
+  # Rule 1: Stenter chain/clip components -> 845190
+  - if_any_keyword:
+      - gleitstein
+      - gleitleiste
+      - kluppen gleitstein
+      - öffner segment
+      - kette
+      - nadelglied
+      - gleitstücke
+      - ram
+      - stenter
+      - tenter
+    then:
+      primary: "845190"
+      fallback: ["392690"]
+      reason: "Stenter machine component"
+  
+  # Rule 2: Plain bearings/bushings -> 848330
+  - if_any_keyword:
+      - buchse
+      - buchsen
+      - torlonbuchse
+      - bushing
+      - plain bearing
+      - gleitlager
+    then:
+      primary: "848330"
+      fallback: ["392690"]
+      reason: "Plain shaft bearing/bushing"
+  
+  # Rule 3: Ball/roller screws -> 848340
+  - if_any_keyword:
+      - spindel mutter
+      - spindelmutter
+      - ball screw
+      - roller screw
+      - spindle nut
+      - kugelgewindetrieb
+    then:
+      primary: "848340"
+      secondary: "848390"
+      fallback: ["845190"]
+      reason: "Ball/roller screw assembly or part"
+
+# Our 16 Products with HS Mappings
+items_1_to_16:
+  - item: "Brückner nadelglied gleitstein"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "stenter_chain"
+    
+  - item: "Monforts vertical ketten gleitstücke"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Monforts"
+    product_type: "stenter_chain"
+    
+  - item: "Brückner gleitleiste 269 mm"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "guide_rail"
+    
+  - item: "Brückner kluppen gleitstein t-stück"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "clip_slider"
+    
+  - item: "Monforts Spindel Mutter"
+    hs_primary: "848340"
+    hs_secondary: "848390"
+    hs_fallback: ["845190"]
+    oem: "Monforts"
+    product_type: "spindle_nut"
+    
+  - item: "Brückner kluppen gleitstein hinten"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "clip_slider"
+    
+  - item: "Brückner vertikal kette sk 999"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "stenter_chain"
+    
+  - item: "Krantz gleitstein k30"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Krantz"
+    product_type: "clip_slider"
+    
+  - item: "Monforts Herkules kette gleitstein"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Monforts"
+    product_type: "stenter_chain"
+    
+  - item: "Brückner öffner segment VII"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "opener_segment"
+    
+  - item: "Monforts Torlonbuchse (mit/ohne schmierfenster)"
+    hs_primary: "848330"
+    hs_fallback: ["392690"]
+    oem: "Monforts"
+    product_type: "bushing"
+    
+  - item: "Santex buchsen klein/groß"
+    hs_primary: "848330"
+    hs_fallback: ["392690"]
+    oem: "Santex"
+    product_type: "bushing"
+    
+  - item: "Artos buchsen klein/groß"
+    hs_primary: "848330"
+    hs_fallback: ["392690"]
+    oem: "Artos"
+    product_type: "bushing"
+    
+  - item: "Artos gleitsteine groß/klein"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Artos"
+    product_type: "clip_slider"
+    
+  - item: "Monforts vertical kette buchsen groß/klein"
+    hs_primary: "848330"
+    hs_fallback: ["392690"]
+    oem: "Monforts"
+    product_type: "bushing"
+    
+  - item: "Brückner öffner segment 70mm"
+    hs_primary: "845190"
+    hs_fallback: ["392690"]
+    oem: "Brückner"
+    product_type: "opener_segment"
+
+# OEM Brands we produce parts for
+oem_brands:
+  - name: "Brückner"
+    country: "Germany"
+    product_focus: ["stenter", "finishing"]
+    
+  - name: "Monforts"
+    country: "Germany"
+    product_focus: ["stenter", "dyeing", "finishing"]
+    
+  - name: "Krantz"
+    country: "Germany"
+    product_focus: ["stenter"]
+    
+  - name: "Artos"
+    country: "Germany"
+    product_focus: ["stenter"]
+    
+  - name: "Santex"
+    country: "Italy"
+    product_focus: ["finishing", "coating"]
+
+# Trade Data Sources for HS-based importer discovery
+trade_data_sources:
+  - name: "UN Comtrade"
+    url: "https://comtradeplus.un.org/"
+    hs_codes: ["845190", "848330", "848340"]
+    access: "free_limited"
+    
+  - name: "Panjiva"
+    url: "https://panjiva.com/"
+    hs_codes: ["845190", "848330", "848340"]
+    access: "paid"
+    
+  - name: "ImportGenius"
+    url: "https://www.importgenius.com/"
+    hs_codes: ["845190", "848330", "848340"]
+    access: "paid"
+    
+  - name: "Volza"
+    url: "https://www.volza.com/"
+    hs_codes: ["845190"]
+    access: "freemium"
+
+# Target Markets (priority order)
+target_markets:
+  tier1_priority:
+    - code: "TR"
+      name: "Turkey"
+      notes: "Largest textile finishing market"
+    - code: "EG"
+      name: "Egypt"
+      notes: "Growing finishing sector"
+    - code: "MA"
+      name: "Morocco"
+      notes: "European supply chain hub"
+  
+  tier2_expansion:
+    - code: "PK"
+      name: "Pakistan"
+      notes: "Large textile base"
+    - code: "IN"
+      name: "India"
+      notes: "Massive textile industry"
+    - code: "BD"
+      name: "Bangladesh"
+      notes: "Garment focus, some finishing"
+    - code: "BR"
+      name: "Brazil"
+      notes: "Latin America hub"
+  
+  tier3_opportunistic:
+    - code: "UZ"
+      name: "Uzbekistan"
+      notes: "Emerging cotton processing"
+    - code: "VN"
+      name: "Vietnam"
+      notes: "Growing technical textiles"
+    - code: "ID"
+      name: "Indonesia"
+      notes: "Domestic textile market"
