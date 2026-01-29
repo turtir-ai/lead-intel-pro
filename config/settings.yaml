@@ -1,0 +1,101 @@
+api_keys:
+  un_comtrade: ""
+  brave: ""
+  eurostat: ""
+
+crawler:
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+  rate_limit_delay: 2.0
+  max_retries: 3
+  timeout: 30
+
+trade:
+  period: "2022"
+  rate_delay: 1.0
+  timeout: 30
+
+harvest:
+  resume: true
+
+# Enrichment settings (website discovery + contact crawl)
+enrichment:
+  resume: true
+  checkpoint_every: 25
+  website_discovery:
+    enabled: true
+    target_source_types:
+      - "gots"
+      - "bettercotton"
+      - "oekotex"
+      - "bluesign"
+      - "amith"
+      - "abit"
+      - "directory"
+    max_results: 5
+    min_score: 2
+    verify_website: true
+    delay: 1.0
+    disallow_domains:
+      - "linkedin.com"
+      - "facebook.com"
+      - "instagram.com"
+      - "wikipedia.org"
+      - "bloomberg.com"
+      - "crunchbase.com"
+      - "youtube.com"
+      - "x.com"
+      - "twitter.com"
+    queries:
+      - "\"{company}\" {country} textile"
+      - "\"{company}\" {country} dyeing"
+      - "\"{company}\" {country} finishing"
+      - "\"{company}\" {country} weaving"
+      - "\"{company}\" {country} textil"
+      - "\"{company}\" {country} tecelagem"
+      - "\"{company}\" {country} tejido"
+  contact:
+    enabled: true
+    target_source_types:
+      - "bettercotton"
+      - "gots"
+      - "oekotex"
+      - "bluesign"
+      - "amith"
+      - "abit"
+      - "egypt_tec"
+      - "directory"
+    max_pages: 6
+    timeout: 20
+    max_retries: 2
+    paths:
+      - "/contact"
+      - "/contact-us"
+      - "/contacts"
+      - "/about"
+      - "/about-us"
+      - "/impressum"
+      - "/imprint"
+      - "/kontakt"
+      - "/iletisim"
+      - "/iletisim.html"
+      - "/contacto"
+      - "/contato"
+      - "/empresa"
+      - "/quienes-somos"
+      - "/quem-somos"
+    keywords:
+      - "contact"
+      - "contact-us"
+      - "contacts"
+      - "about"
+      - "impressum"
+      - "imprint"
+      - "kontakt"
+      - "iletisim"
+      - "contato"
+      - "contacto"
+      - "empresa"
+      - "quem-somos"
+      - "quienes-somos"
+
+# Scoring moved to config/scoring.yaml

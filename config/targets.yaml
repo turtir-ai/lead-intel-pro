@@ -1,0 +1,663 @@
+# ============================================================================
+# HEDEF PAZAR KONFİGÜRASYONU v2.0
+# ============================================================================
+# Plastik enjeksiyon stenter yedek parçaları için hedef pazarlar
+# ÖNCELİK: Güney Amerika + Kuzey Afrika → Pakistan/Hindistan → Türkiye
+# HS kodları ile Comtrade API entegrasyonu
+
+# ============================================================================
+# ÖNCELİK 1: GÜNEY AMERİKA (Yüksek Potansiyel)
+# ============================================================================
+south_america:
+  priority: 1
+  region_label: "South America"
+  notes: "Güçlü tekstil endüstrisi, Monforts/Brückner penetrasyonu yüksek"
+  
+  countries:
+    brazil:
+      code: "BRA"
+      labels: ["Brazil", "Brasil", "Brezilya"]
+      comtrade_reporter: "076"
+      priority: 1
+      notes: "Denim ve ev tekstili merkezi, Vicunha, Santana"
+      search_keywords:
+        - "Brazil textile finishing"
+        - "Brasil rama stenter"
+        - "Vicunha textile machinery"
+        - "Brazilian denim manufacturer stenter"
+        - "tecelagem Brasil Monforts"
+        - "tinturaria Brasil Brückner"
+      known_manufacturers:
+        - "Vicunha Têxtil"
+        - "Santana Textiles"
+        - "Coteminas"
+        - "Döhler"
+        - "Karsten"
+        - "Teka Tecelagem"
+        - "Cedro Têxtil"
+        - "Paramount Textiles"
+        - "CIT Denim"
+        
+    argentina:
+      code: "ARG"
+      labels: ["Argentina", "Arjantin"]
+      comtrade_reporter: "032"
+      priority: 1
+      notes: "AustralTex, TN Platex - büyük stenter kullanıcıları"
+      search_keywords:
+        - "Argentina textile finishing"
+        - "teñido textil Argentina"
+        - "acabado textil Argentina"
+        - "Argentina stenter Monforts"
+        - "tintorería Argentina rama"
+      known_manufacturers:
+        - "AustralTex Group"
+        - "TN Platex"
+        - "Alpargatas SAIC"
+        - "Gaby Salinas"
+        - "Textil Iberia"
+        - "Manufactura Algodonera"
+        
+    colombia:
+      code: "COL"
+      labels: ["Colombia", "Kolombiya"]
+      comtrade_reporter: "170"
+      priority: 2
+      notes: "Gelişen tekstil sektörü, denim üretimi"
+      search_keywords:
+        - "Colombia textile finishing"
+        - "acabado textil Colombia"
+        - "tintorería Colombia rama"
+        - "Fabricato Colombia"
+        - "Colombia denim manufacturer"
+      known_manufacturers:
+        - "Fabricato"
+        - "Coltejer"
+        - "Enka de Colombia"
+        - "Protela"
+        - "Manufacturas Eliot"
+        
+    peru:
+      code: "PER"
+      labels: ["Peru", "Perú"]
+      comtrade_reporter: "604"
+      priority: 2
+      notes: "Kaliteli pamuk ve tekstil üretimi"
+      search_keywords:
+        - "Peru textile finishing"
+        - "acabado textil Peru"
+        - "teñido Peru tela"
+        - "Peru stenter manufacturer"
+      known_manufacturers:
+        - "Creditex"
+        - "Textil San Cristobal"
+        - "Devanlay Peru"
+        - "Topy Top"
+        - "Textil del Valle"
+        - "Inca Tops"
+        
+    mexico:
+      code: "MEX"
+      labels: ["Mexico", "México", "Meksika"]
+      comtrade_reporter: "484"
+      priority: 2
+      notes: "Zentrix - Monforts müşterisi, dev tekstil pazarı"
+      search_keywords:
+        - "Mexico textile finishing"
+        - "acabado textil Mexico"
+        - "rama stenter Mexico"
+        - "Zentrix textile Mexico"
+        - "tintorería México industrial"
+      known_manufacturers:
+        - "Zentrix"
+        - "Avante Textil"
+        - "Grupo Kaltex"
+        - "Textiles Cintex"
+        - "Compania Industrial de Parras"
+        
+    chile:
+      code: "CHL"
+      labels: ["Chile", "Şili"]
+      comtrade_reporter: "152"
+      priority: 3
+      search_keywords:
+        - "Chile textile finishing"
+        - "acabado textil Chile"
+        - "tintorería Chile rama"
+      known_manufacturers:
+        - "Tejidos Caffarena"
+        - "Textil Viña"
+        
+    ecuador:
+      code: "ECU"
+      labels: ["Ecuador", "Ekvador"]
+      comtrade_reporter: "218"
+      priority: 3
+      search_keywords:
+        - "Ecuador textile finishing"
+        - "teñido textil Ecuador"
+
+# ============================================================================
+# ÖNCELİK 1: KUZEY AFRİKA (Yüksek Potansiyel)
+# ============================================================================
+north_africa:
+  priority: 1
+  region_label: "North Africa"
+  notes: "Avrupa'ya yakın, güçlü tekstil ihracatı, büyüyen finishing kapasitesi"
+  
+  countries:
+    egypt:
+      code: "EGY"
+      labels: ["Egypt", "Mısır"]
+      comtrade_reporter: "818"
+      priority: 1
+      notes: "Hızlı büyüyen tekstil sektörü, Oriental Weavers dev üretici"
+      search_keywords:
+        - "Egypt textile finishing"
+        - "Egyptian textile dyeing"
+        - "Oriental Weavers Egypt"
+        - "Egypt stenter Brückner"
+        - "Sadat City textile"
+        - "10th of Ramadan textile"
+        - "Egyptian denim finishing"
+        - "Cairo textile mill"
+      known_manufacturers:
+        - "Oriental Weavers"
+        - "El Arafa Group"
+        - "El Nasr Clothing"
+        - "Delta Dyeing"
+        - "ASSOUAD Dyeing"
+        - "Egyptian Textiles"
+        - "El Radwa Textile"
+        - "Zahret Elmehalla"
+        - "Nile Clothing"
+        - "Dice Denim"
+        
+    morocco:
+      code: "MAR"
+      labels: ["Morocco", "Maroc", "Fas"]
+      comtrade_reporter: "504"
+      priority: 1
+      notes: "Avrupa'ya yakın, Zara/H&M tedarikçisi"
+      search_keywords:
+        - "Morocco textile finishing"
+        - "Maroc teinture textile"
+        - "finition textile Maroc"
+        - "Casablanca textile"
+        - "Tangier textile factory"
+        - "Morocco denim manufacturer"
+      known_manufacturers:
+        - "MAROC MODE"
+        - "Lectra Maroc"
+        - "SICOME"
+        - "Textile Sefrou"
+        - "Atlantic Free Zone textiles"
+        
+    tunisia:
+      code: "TUN"
+      labels: ["Tunisia", "Tunisie", "Tunus"]
+      comtrade_reporter: "788"
+      priority: 1
+      notes: "Avrupa'ya tekstil ihracatçısı, denim hub"
+      search_keywords:
+        - "Tunisia textile finishing"
+        - "Tunisie teinture textile"
+        - "finition textile Tunisie"
+        - "Tunisia denim"
+        - "Sfax textile"
+      known_manufacturers:
+        - "Groupe Chakira"
+        - "SITEX"
+        - "Textile Plus"
+        - "S.I.T.E.L."
+        
+    algeria:
+      code: "DZA"
+      labels: ["Algeria", "Algérie", "Cezayir"]
+      comtrade_reporter: "012"
+      priority: 2
+      search_keywords:
+        - "Algeria textile finishing"
+        - "Algérie teinture textile"
+        - "industrie textile Algérie"
+      known_manufacturers:
+        - "TEXALG"
+        - "COTITEX"
+        - "TEXMACO"
+        
+    libya:
+      code: "LBY"
+      labels: ["Libya"]
+      comtrade_reporter: "434"
+      priority: 3
+      search_keywords:
+        - "Libya textile"
+
+# ============================================================================
+# ÖNCELİK 2: GÜNEY ASYA (Büyük Hacim)
+# ============================================================================
+south_asia:
+  priority: 2
+  region_label: "South Asia"
+  notes: "Dünyanın en büyük tekstil üretim bölgesi"
+  
+  countries:
+    pakistan:
+      code: "PAK"
+      labels: ["Pakistan"]
+      comtrade_reporter: "586"
+      priority: 1
+      notes: "Dev tekstil endüstrisi, yüksek stenter yoğunluğu"
+      search_keywords:
+        - "Pakistan textile finishing"
+        - "Karachi textile mill"
+        - "Lahore dyeing factory"
+        - "Faisalabad textile"
+        - "Pakistan stenter Monforts"
+        - "Pakistan denim finishing"
+        - "Nishat Mills"
+      known_manufacturers:
+        - "Nishat Mills"
+        - "Gul Ahmed Textile"
+        - "Sapphire Textile"
+        - "Interloop Limited"
+        - "Kohinoor Textile"
+        - "Artistic Denim"
+        - "Lucky Textile"
+        - "Masood Textile"
+        - "Soorty Enterprises"
+        
+    india:
+      code: "IND"
+      labels: ["India", "Hindistan"]
+      comtrade_reporter: "699"
+      priority: 1
+      notes: "Dev tekstil pazarı, yüksek hacim"
+      search_keywords:
+        - "India textile finishing"
+        - "Gujarat textile"
+        - "Surat dyeing"
+        - "Tirupur finishing"
+        - "Indian stenter manufacturer"
+        - "India denim finishing"
+        - "Coimbatore textile"
+        - "Ahmedabad processing"
+      known_manufacturers:
+        - "Arvind Limited"
+        - "Raymond Limited"
+        - "Welspun India"
+        - "Vardhman Textiles"
+        - "Aditya Birla Fashion"
+        - "Bombay Dyeing"
+        - "Indo Count Industries"
+        - "Trident Group"
+        - "Shree Ram Mills"
+        
+    bangladesh:
+      code: "BGD"
+      labels: ["Bangladesh", "Bangladeş"]
+      comtrade_reporter: "050"
+      priority: 1
+      notes: "Dünya'nın 2. büyük hazır giyim ihracatçısı"
+      search_keywords:
+        - "Bangladesh textile finishing"
+        - "Dhaka dyeing factory"
+        - "Chittagong textile"
+        - "Bangladesh stenter"
+        - "Bangladesh denim"
+        - "Gazipur textile"
+      known_manufacturers:
+        - "DBL Group"
+        - "Ananta Group"
+        - "Viyellatex"
+        - "Epyllion Group"
+        - "Standard Group"
+        
+    sri_lanka:
+      code: "LKA"
+      labels: ["Sri Lanka"]
+      comtrade_reporter: "144"
+      priority: 2
+      search_keywords:
+        - "Sri Lanka textile finishing"
+        - "Colombo textile"
+      known_manufacturers:
+        - "Brandix Lanka"
+        - "MAS Holdings"
+
+# ============================================================================
+# ÖNCELİK 3: TÜRKİYE (Mevcut Pazar)
+# ============================================================================
+turkey:
+  priority: 3
+  region_label: "Turkey"
+  notes: "En büyük tekstil terbiye pazarı, yüksek stenter yoğunluğu, Neotek partner"
+  
+  countries:
+    turkey:
+      code: "TUR"
+      labels: ["Turkey", "Türkiye", "Turkiye"]
+      comtrade_reporter: "792"
+      priority: 1
+      notes: "Bursa, Denizli, Gaziantep tekstil merkezleri"
+      search_keywords:
+        - "Turkey textile finishing"
+        - "Türkiye tekstil terbiye"
+        - "Bursa tekstil boyama"
+        - "Denizli finishing"
+        - "Gaziantep textile"
+        - "Turkey stenter Monforts"
+        - "Turkey ram Brückner"
+        - "İstanbul boyahane"
+      known_manufacturers:
+        - "Altun Tekstil"
+        - "Isil Tekstil"
+        - "İlay Textile"
+        - "Yeşim Tekstil"
+        - "Sanko Tekstil"
+        - "Kipaş Holding"
+        - "Yünsa"
+        - "Boyteks"
+        - "Menderes Tekstil"
+        - "Özak Tekstil"
+
+# ============================================================================
+# ÖNCELİK 4: DİĞER PAZARLAR
+# ============================================================================
+other_markets:
+  priority: 4
+  
+  countries:
+    vietnam:
+      code: "VNM"
+      labels: ["Vietnam"]
+      comtrade_reporter: "704"
+      priority: 1
+      search_keywords:
+        - "Vietnam textile finishing"
+        - "Ho Chi Minh textile"
+        
+    indonesia:
+      code: "IDN"
+      labels: ["Indonesia", "Endonezya"]
+      comtrade_reporter: "360"
+      priority: 2
+      search_keywords:
+        - "Indonesia textile finishing"
+        - "Bandung textile"
+        
+    thailand:
+      code: "THA"
+      labels: ["Thailand", "Tayland"]
+      comtrade_reporter: "764"
+      priority: 2
+      search_keywords:
+        - "Thailand textile finishing"
+        
+    uzbekistan:
+      code: "UZB"
+      labels: ["Uzbekistan", "Özbekistan"]
+      comtrade_reporter: "860"
+      priority: 2
+      notes: "Büyüyen pamuk ve tekstil endüstrisi"
+      search_keywords:
+        - "Uzbekistan textile finishing"
+        - "Tashkent textile"
+
+# ============================================================================
+# COMTRADE API KONFİGÜRASYONU
+# ============================================================================
+comtrade:
+  api_base: "https://comtradeapi.un.org/data/v1/get/C/A"
+  
+  # İthalatçı ülkeler için sorgular (stenter parçaları satın alanlar)
+  import_queries:
+    # Tekstil makinesi parçaları - birincil
+    - hs_code: "845190"
+      flow: "M"  # Import
+      description: "Parts of textile finishing machinery imports"
+      priority: 1
+      
+    # Burç/yatak parçaları
+    - hs_code: "848330"
+      flow: "M"
+      description: "Plain shaft bearings imports"
+      priority: 2
+      
+    # Bilyalı vida
+    - hs_code: "848340"
+      flow: "M"
+      description: "Ball screw imports"
+      priority: 2
+      
+    # Plastik parçalar (fallback)
+    - hs_code: "392690"
+      flow: "M"
+      description: "Other plastic articles imports"
+      priority: 3
+
+  # Almanya'dan ihracat yapılan ülkeleri bul
+  export_queries:
+    - reporter: "276"  # Germany
+      hs_code: "845190"
+      flow: "X"
+      description: "German textile machinery parts exports - find buying countries"
+      
+  # Almanya'nın ana rakipleri
+  competitor_countries:
+    - code: "156"
+      name: "China"
+    - code: "380"
+      name: "Italy"
+    - code: "392"
+      name: "Japan"
+
+# ============================================================================
+# REKABETÇİ YEDEK PARÇA ŞİRKETLERİ
+# ============================================================================
+competitors:
+  direct_competitors:
+    - name: "Interspare"
+      country: "Germany"
+      website: "interspare.de"
+      products: ["Brückner parts", "Monforts parts", "Babcock parts"]
+      hunt_customers: true
+      
+    - name: "XTY/Elinmac"
+      country: "Turkey"
+      website: "elinmac.com.tr"
+      products: ["Brückner parts", "Generic stenter parts"]
+      hunt_customers: true
+      
+    - name: "Texparts"
+      country: "Germany"
+      website: "texparts.de"
+      products: ["Textile machinery parts"]
+      hunt_customers: true
+      
+    - name: "Bräcker AG"
+      country: "Switzerland"
+      products: ["Stenter parts", "Clips", "Pins"]
+      hunt_customers: true
+      
+    - name: "Itema Spare Parts"
+      country: "Italy"
+      products: ["Weaving parts"]
+      
+  oem_competitors:
+    - name: "Brückner"
+      original_parts: true
+      price_premium: "high"
+      
+    - name: "Monforts"
+      original_parts: true
+      price_premium: "high"
+
+# ============================================================================
+# AUTO-DISCOVER FUARLAR
+# ============================================================================
+trade_fairs:
+  auto_discover: true
+  
+  known_fairs:
+    - name: "ITMA"
+      location: "Europe"
+      frequency: "4 years"
+      next_edition: "2027"
+      relevance: "high"
+      exhibitor_url_pattern: "itma.com/exhibitors"
+      
+    - name: "ITM Istanbul"
+      location: "Turkey"
+      frequency: "annual"
+      relevance: "high"
+      exhibitor_url_pattern: "itm.com.tr"
+      
+    - name: "Techtextil"
+      location: "Frankfurt"
+      frequency: "biennial"
+      relevance: "high"
+      exhibitor_url_pattern: "techtextil.messefrankfurt.com"
+      
+    - name: "Texprocess"
+      location: "Frankfurt"
+      frequency: "biennial"
+      relevance: "medium"
+      
+    - name: "IGATEX Pakistan"
+      location: "Pakistan"
+      frequency: "annual"
+      relevance: "high"
+      
+    - name: "India ITME"
+      location: "India"
+      frequency: "4 years"
+      relevance: "high"
+      
+    - name: "Colombiatex"
+      location: "Colombia"
+      frequency: "annual"
+      relevance: "high"
+      
+    - name: "FIMEC"
+      location: "Brazil"
+      frequency: "annual"
+      relevance: "medium"
+      
+    - name: "Febratex"
+      location: "Brazil"
+      frequency: "biennial"
+      relevance: "high"
+      exhibitor_url_pattern: "febratex.com.br"
+      
+    - name: "Egypt Fashion & Tex"
+      location: "Egypt"
+      frequency: "annual"
+      relevance: "high"
+      
+    - name: "Maroc Sourcing"
+      location: "Morocco"
+      frequency: "annual"
+      relevance: "medium"
+      
+    - name: "Tunisia Textile"
+      location: "Tunisia"
+      frequency: "annual"
+      relevance: "medium"
+
+  # Fuar arama terimleri
+  discovery_keywords:
+    - "textile machinery exhibition"
+    - "textile fair exhibitors list"
+    - "finishing machinery trade show"
+    - "stenter exhibition"
+    - "dyeing finishing expo"
+    - "textile technology fair"
+    - "ITMA exhibitors"
+    - "textile B2B event"
+
+# ============================================================================
+# SEKTÖR DİZİNLERİ
+# ============================================================================
+industry_directories:
+  auto_discover: true
+  
+  known_directories:
+    - name: "Fibre2Fashion"
+      url: "fibre2fashion.com"
+      type: "global"
+      scrape_pattern: "company-directory"
+      
+    - name: "Textile World"
+      url: "textileworld.com"
+      type: "global"
+      
+    - name: "ITMF Members"
+      url: "itmf.org/members"
+      type: "association"
+      
+    - name: "GOTS Directory"
+      url: "global-standard.org"
+      type: "certification"
+      
+    - name: "OEKO-TEX Buying Guide"
+      url: "oeko-tex.com/buying-guide"
+      type: "certification"
+      
+    - name: "TexBrasil"
+      url: "texbrasil.com.br"
+      type: "brazil"
+      
+    - name: "APTMA Pakistan"
+      url: "aptma.org.pk"
+      type: "pakistan_association"
+      
+    - name: "CITI India"
+      url: "citiindia.org"
+      type: "india_association"
+      
+    - name: "BTMA Bangladesh"
+      url: "btmadhaka.com"
+      type: "bangladesh_association"
+
+# ============================================================================
+# AUTO-SCRAPER DOM PATTERNLERİ
+# ============================================================================
+dom_patterns:
+  # Fuar katılımcı listeleri için ortak patternler
+  exhibitor_patterns:
+    - selector: ".exhibitor-card, .exhibitor-item, .company-card"
+      fields:
+        company: ".company-name, .exhibitor-name, h3, h4"
+        country: ".country, .location"
+        website: "a[href*='http']"
+        booth: ".booth, .stand"
+        
+    - selector: "table.exhibitors tr, .exhibitor-table tr"
+      fields:
+        company: "td:nth-child(1), td.company"
+        country: "td:nth-child(2), td.country"
+        website: "td a[href]"
+        
+    - selector: "[data-exhibitor], [data-company]"
+      fields:
+        company: "[data-name], .name"
+        country: "[data-country]"
+        
+  # Şirket dizinleri için patternler
+  directory_patterns:
+    - selector: ".company-listing, .member-card, .supplier-card"
+      fields:
+        company: ".company-name, .title, h2, h3"
+        country: ".country, .location, .address"
+        email: "a[href^='mailto:']"
+        phone: ".phone, .tel"
+        website: "a.website, a[href*='http']:not([href*='mailto'])"
+        
+  # Sertifika listeleri için
+  certification_patterns:
+    - selector: ".certified-company, .certificate-holder"
+      fields:
+        company: ".company, .name"
+        certificate: ".cert-type, .certification"
+        valid_until: ".valid, .expiry"

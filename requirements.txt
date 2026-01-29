@@ -1,0 +1,13 @@
+pandas
+pyyaml
+trafilatura
+requests
+beautifulsoup4
+duckdb
+lxml
+python-dotenv
+streamlit
+pdfplumber
+rapidfuzz
+certifi
+openpyxl

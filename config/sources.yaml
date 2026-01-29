@@ -1,0 +1,220 @@
+industry_keywords:
+  - "textile"
+  - "machinery"
+  - "dyeing"
+  - "finishing"
+  - "spinning"
+  - "weaving"
+
+discovery:
+  enabled: true
+  max_results: 8
+  delay: 1.0
+  disallow_domains:
+    - "linkedin.com"
+    - "facebook.com"
+  queries:
+    - type: "fairs"
+      query: "textile fair exhibitor list"
+    - type: "directories"
+      query: "textile association member directory"
+    - type: "directories"
+      query: "textile manufacturers member directory"
+    - type: "directories"
+      query: "site:.br associacao textil membros"
+    - type: "directories"
+      query: "site:.br associacao textil associados"
+    - type: "fairs"
+      query: "site:.br feira textil lista de expositores"
+    - type: "fairs"
+      query: "site:.br lista de expositores textil"
+    - type: "directories"
+      query: "site:.co directorio textil empresas"
+    - type: "directories"
+      query: "site:.co expositores textil"
+    - type: "directories"
+      query: "site:.ma annuaire textile membres"
+    - type: "directories"
+      query: "site:.tn annuaire textile membres"
+    - type: "directories"
+      query: "site:.eg textile association members"
+    - type: "directories"
+      query: "site:.pe directorio textil empresas"
+    - type: "directories"
+      query: "site:.ar camara textil socios"
+    - type: "directories"
+      query: "site:.ar asociacion textil socios"
+
+competitor_websearch:
+  enabled: true
+  max_results: 8
+  queries:
+    - "\"{name}\" customer"
+    - "\"{name}\" reference"
+    - "\"{name}\" case study"
+    - "\"{name}\" project"
+    - "\"{name}\" modernization"
+    - "\"{name}\" bei"
+    - "\"{name}\" client"
+    - "\"{name}\" clients"
+    - "\"{name}\" cliente"
+    - "\"{name}\" clientes"
+    - "\"{name}\" referencia"
+    - "\"{name}\" referencias"
+    - "\"{name}\" caso de estudio"
+    - "\"{name}\" proyecto"
+    - "\"{name}\" instalacion"
+    - "\"{name}\" instalado en"
+    - "\"{name}\" caso de estudo"
+    - "\"{name}\" projeto"
+    - "\"{name}\" instalacao"
+    - "\"{name}\" instalado em"
+    - "\"{name}\" referenz"
+    - "\"{name}\" kunde"
+    - "\"{name}\" kunden"
+  trigger_keywords:
+    - "customer"
+    - "client"
+    - "reference"
+    - "case"
+    - "project"
+    - "kunden"
+    - "referenz"
+    - "bei"
+    - "clientes"
+    - "cliente"
+    - "referencia"
+    - "referencias"
+    - "caso de estudio"
+    - "caso de estudo"
+    - "projeto"
+    - "proyecto"
+    - "instalado"
+    - "instalacion"
+    - "instalacao"
+  strong_keywords:
+    - "customer"
+    - "client"
+    - "reference"
+    - "referenz"
+    - "bei"
+    - "installed at"
+    - "project for"
+    - "cliente"
+    - "clientes"
+    - "referencia"
+    - "referencias"
+    - "caso de estudio"
+    - "caso de estudo"
+    - "instalado"
+    - "instalacion"
+    - "instalacao"
+  exclude_context_keywords:
+    - "exhibitor"
+    - "fair"
+    - "messe"
+    - "expo"
+    - "directory"
+    - "expositor"
+    - "exposant"
+    - "feria"
+    - "feira"
+  disallow_domains:
+    - "crunchbase.com"
+    - "trustpilot.com"
+    - "linkedin.com"
+    - "facebook.com"
+    - "instagram.com"
+    - "x.com"
+    - "twitter.com"
+  exclude_company_keywords:
+    - "wordpress"
+    - "stand"
+    - "abonnenten"
+    - "reviews"
+    - "customer service"
+    - "crunchbase"
+
+bettercotton:
+  enabled: true
+  url: "https://bettercotton.org/membership/find-members/"
+  member_list_url: "https://bettercotton.org/documents/member-list/"
+  max_pages: 5
+  use_xlsx: true
+  include_categories: []
+
+gots:
+  enabled: true
+  base_url: "https://www.global-trace-base.org/website-api/v2/certified-suppliers"
+  page_size: 100
+  max_records: 500
+  timeout: 30
+
+egypt_tec:
+  enabled: true
+  search_query: "site:textile-egypt.org/textile-egypt.org/members textile egypt"
+  max_results: 20
+
+# OEKO-TEX Buying Guide / Directory
+oekotex:
+  enabled: true
+  base_url: "https://www.oeko-tex.com/en/apply-here/buying-guide"
+  api_url: "https://www.oeko-tex.com/api/buyingGuide/search"
+  max_records: 300
+  timeout: 30
+
+# bluesign System Partners (brands, not manufacturers - disabled)
+bluesign:
+  enabled: false
+  base_url: "https://www.bluesign.com/en/business/system-partners"
+
+# AMITH - Morocco Textile Association (needs Playwright for JavaScript site)
+amith:
+  enabled: false
+  base_url: "https://www.amith.ma"
+  max_pages: 20
+
+# ABIT - Brazil Textile Association (needs Playwright for JavaScript site)
+abit:
+  enabled: false
+  base_url: "https://www.abit.org.br"
+  max_pages: 30
+
+brazil:
+  febratex:
+    enabled: true
+    name: "Febratex Exhibitors"
+    url: "https://febratex.com.br/inscricoes/"
+    country: "Brazil"
+  febratextil:
+    enabled: true
+    name: "Febratextil Exhibitors"
+    url: "https://febratextil.com.br/visitante/"
+    country: "Brazil"
+  texbrasil:
+    enabled: true
+    name: "Texbrasil Companies"
+    base_url: "https://texbrasil.com.br"
+    sitemap_url: "https://texbrasil.com.br/sitemap_index.xml"
+    max_pages: 150
+    country: "Brazil"
+
+fairs:
+  - name: "Example Fair Directory"
+    url: "https://example.com/exhibitors"
+    type: "html"
+    enabled: false
+    selectors:
+      item: ".exhibitor-card"
+      name: ".exhibitor-name"
+      website: "a.exhibitor-website"
+
+directories:
+  - name: "Example Association Members"
+    url: "https://example.org/members"
+    type: "html"
+    enabled: false
+    selectors:
+      item: ".member"
+      name: ".member-name"
+      website: "a"

@@ -1,0 +1,94 @@
+# Main OEM Competitors (find their customers!)
+main_oem:
+  - name: "Brückner"
+    url: "https://www.brueckner-textile.com/"
+    origin: "DE"
+    focus: "Stenter frames, finishing lines, high-end OEM"
+    customer_source: true
+    search_enabled: true
+    max_pages: 50
+    max_depth: 3
+    search_paths:
+      - "/en/references"
+      - "/en/news"
+      - "/en/case-studies"
+      - "/references"
+      - "/news"
+    include_keywords:
+      - "reference"
+      - "customer"
+      - "project"
+      - "installation"
+      - "mill"
+      - "textile"
+    keywords: ["stenter", "finishing", "coating", "drying"]
+
+  - name: "Monforts"
+    url: "https://www.monforts.de/"
+    origin: "DE"
+    focus: "Dyeing, finishing, stenters, ranges"
+    customer_source: true
+    search_enabled: true
+    max_pages: 50
+    max_depth: 3
+    search_paths:
+      - "/en/references"
+      - "/en/news"
+      - "/referenzen"
+      - "/news"
+    include_keywords:
+      - "reference"
+      - "referenz"
+      - "kunde"
+      - "customer"
+      - "project"
+      - "installation"
+    keywords: ["montex", "thermex", "stenter", "finishing"]
+
+# Secondary competitors
+competitors:
+  - name: "Interspare"
+    url: "https://www.interspare.com/"
+    origin: "DE"
+    focus: "High-end, OEM, Retrofit, Artos/Krantz"
+    customer_source: true
+    search_enabled: true
+    max_pages: 40
+    max_depth: 2
+    search_paths: 
+      - "/aktuelles"
+      - "/news"
+      - "/referenzen"
+      - "/projekte"
+    include_keywords:
+      - "references"
+      - "referenzen"
+      - "kunden"
+      - "projects"
+      - "news"
+      - "aktuelles"
+    keywords: ["Vlisco", "modernization", "stenters"]
+
+  - name: "Elinmac_XTY"
+    url: "https://www.elinmac.com/en/xty/"
+    origin: "CN"
+    focus: "Consumables, Price-performance, Chains/Clips"
+    customer_source: false
+    search_enabled: true
+    max_pages: 30
+    max_depth: 2
+    search_paths: 
+      - "/products"
+      - "/about-us"
+      - "/projects"
+      - "/references"
+      - "/case"
+      - "/news"
+    include_keywords:
+      - "products"
+      - "about"
+      - "news"
+      - "references"
+      - "case"
+      - "project"
+    keywords: ["xty", "chains", "clips", "carrier"]

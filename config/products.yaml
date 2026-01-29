@@ -1,0 +1,528 @@
+# ============================================================================
+# ÜRÜN KONFİGÜRASYONU - PLASTİK ENJEKSİYON STENTER YEDEK PARÇALARI
+# ============================================================================
+# Plastik enjeksiyon üreticisi olarak stenter/ram yedek parçaları üretiyoruz
+# OEM'lerin (Brückner, Monforts, Krantz, Artos, Santex) müşterilerini hedefliyoruz
+
+# ============================================================================
+# HS KODLARI (Primary + Fallback sistemi)
+# ============================================================================
+hs_codes:
+  # PRIMARY: Tekstil terbiye makinesi parçaları
+  - code: "845190"
+    label: "Parts of textile finishing machinery"
+    description: "Stenter/ram parts: chain sliders, wear strips, opener segments, gleitsteine"
+    is_primary: true
+    applies_to:
+      - "gleitstein"
+      - "gleitleiste"
+      - "öffner_segment"
+      - "kette"
+      - "kluppen"
+      - "nadelglied"
+    keywords_de:
+      - "Stenter"
+      - "Spannrahmen"
+      - "Gleitstein"
+      - "Gleitleiste"
+      - "Gleitstück"
+      - "Kluppen"
+      - "Nadelglied"
+      - "Vertikalkette"
+      - "Öffnersegment"
+      - "Kettenglieder"
+      - "Führungsschiene"
+      - "Spannkette"
+    keywords_en:
+      - "stenter parts"
+      - "tenter frame parts"
+      - "chain slider"
+      - "sliding block"
+      - "wear strip"
+      - "opener segment"
+      - "clip chain"
+      - "pin chain"
+      - "needle bar"
+      - "guide rail"
+    keywords_tr:
+      - "germe makinesi parçaları"
+      - "ram parçaları"
+      - "stenter zinciri"
+      - "kayar blok"
+      - "açıcı segment"
+      - "kıskaç zinciri"
+    keywords_es:
+      - "piezas de rama"
+      - "deslizador de cadena"
+      - "segmento abridor"
+      - "cadena de pinzas"
+    keywords_pt:
+      - "peças de rama"
+      - "corrente de rama"
+      - "deslizador"
+      - "segmento abridor"
+
+  # Burç / Yatak parçaları (Buchse)
+  - code: "848330"
+    label: "Plain shaft bearings / bushings"
+    description: "Buchse, Torlonbuchse, plain bearings for textile machinery"
+    is_primary: true
+    applies_to:
+      - "buchse"
+      - "torlonbuchse"
+      - "gleitlager"
+    keywords_de:
+      - "Buchse"
+      - "Torlonbuchse"
+      - "Gleitlager"
+      - "Lagerbuchse"
+      - "Führungsbuchse"
+      - "Schmierfenster"
+    keywords_en:
+      - "bushing"
+      - "plain bearing"
+      - "sleeve bearing"
+      - "torlon bushing"
+      - "guide bushing"
+      - "self-lubricating bushing"
+    keywords_tr:
+      - "burç"
+      - "yatak burcu"
+      - "kayar yatak"
+      - "torlon burç"
+
+  # Bilyalı vida / Spindle nut
+  - code: "848340"
+    label: "Ball or roller screws"
+    description: "Spindle nuts, ball screw nuts for stenter adjustment"
+    is_primary: true
+    applies_to:
+      - "spindelmutter"
+      - "spindel"
+      - "gewindespindel"
+    keywords_de:
+      - "Spindelmutter"
+      - "Kugelumlaufspindel"
+      - "Trapezspindel"
+      - "Gewindespindel"
+    keywords_en:
+      - "spindle nut"
+      - "ball screw nut"
+      - "lead screw nut"
+      - "acme nut"
+    keywords_tr:
+      - "mil somunu"
+      - "bilyalı vida somunu"
+      - "iğ somunu"
+
+  # 8483 grubunun parça kalemi
+  - code: "848390"
+    label: "Parts of heading 8483"
+    description: "Parts for bearings, gears, spindles - use for spindle nut if treated as part"
+    is_primary: false
+    is_fallback_for: ["848340"]
+    applies_to:
+      - "spindelmutter_part"
+    keywords_de:
+      - "Lagerteile"
+      - "Spindelteile"
+      - "Zahnradteile"
+    keywords_en:
+      - "bearing parts"
+      - "spindle parts"
+      - "gear parts"
+
+  # FALLBACK: Plastik eşya (gümrük "plastik" derse)
+  - code: "392690"
+    label: "Other articles of plastics"
+    description: "Fallback for plastic wear parts, sliders, segments when classified as plastic"
+    is_primary: false
+    is_fallback: true
+    applies_to:
+      - "plastic_parts"
+      - "wear_parts"
+    keywords_de:
+      - "Kunststoffteile"
+      - "Verschleißteile"
+      - "Gleitteile"
+    keywords_en:
+      - "plastic parts"
+      - "wear parts"
+      - "sliding parts"
+      - "plastic components"
+
+# ============================================================================
+# 16 ANA ÜRÜN LİSTESİ (HS Kodu + Fallback eşleştirmesi)
+# ============================================================================
+products:
+  # === BRÜCKNER ÜRÜNLERİ ===
+  - id: "BRK-001"
+    name: "Brückner Nadelglied Gleitstein"
+    name_de: "Brückner Nadelglied Gleitstein"
+    name_en: "Brückner Needle Bar Sliding Block"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Nadelglied"
+      - "Gleitstein"
+      - "needle bar"
+      - "sliding block"
+      - "chain slider"
+
+  - id: "BRK-002"
+    name: "Brückner Gleitleiste 269 mm"
+    name_de: "Brückner Gleitleiste 269 mm"
+    name_en: "Brückner Wear Strip 269 mm"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Gleitleiste"
+      - "wear strip"
+      - "slide rail"
+      - "269mm"
+
+  - id: "BRK-003"
+    name: "Brückner Kluppen Gleitstein T-Stück"
+    name_de: "Brückner Kluppen Gleitstein T-Stück"
+    name_en: "Brückner Clip Chain Slider T-Piece"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Kluppen"
+      - "Gleitstein"
+      - "T-Stück"
+      - "clip chain"
+      - "slider"
+
+  - id: "BRK-004"
+    name: "Brückner Kluppen Gleitstein Hinten"
+    name_de: "Brückner Kluppen Gleitstein Hinten"
+    name_en: "Brückner Clip Chain Slider Rear"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Kluppen"
+      - "Gleitstein"
+      - "hinten"
+      - "rear slider"
+
+  - id: "BRK-005"
+    name: "Brückner Vertikal Kette SK 999"
+    name_de: "Brückner Vertikal Kette SK 999"
+    name_en: "Brückner Vertical Chain SK 999"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Vertikalkette"
+      - "SK 999"
+      - "vertical chain"
+
+  - id: "BRK-006"
+    name: "Brückner Öffner Segment VII"
+    name_de: "Brückner Öffner Segment VII"
+    name_en: "Brückner Opener Segment VII"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Öffnersegment"
+      - "Segment VII"
+      - "opener segment"
+      - "fabric opener"
+
+  - id: "BRK-007"
+    name: "Brückner Öffner Segment 70mm"
+    name_de: "Brückner Öffner Segment 70mm"
+    name_en: "Brückner Opener Segment 70mm"
+    brand: "Brückner"
+    oem: "Brückner"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Öffnersegment"
+      - "70mm"
+      - "opener segment"
+
+  # === MONFORTS ÜRÜNLERİ ===
+  - id: "MON-001"
+    name: "Monforts Vertical Ketten Gleitstücke"
+    name_de: "Monforts Vertical Ketten Gleitstücke"
+    name_en: "Monforts Vertical Chain Sliding Blocks"
+    brand: "Monforts"
+    oem: "Monforts"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Vertikalkette"
+      - "Gleitstück"
+      - "vertical chain"
+      - "sliding block"
+      - "Montex"
+
+  - id: "MON-002"
+    name: "Monforts Spindel Mutter"
+    name_de: "Monforts Spindel Mutter"
+    name_en: "Monforts Spindle Nut"
+    brand: "Monforts"
+    oem: "Monforts"
+    category: "spindle_parts"
+    material: "plastic_injection"
+    hs_primary: "848340"
+    hs_fallback: "848390"
+    hs_alternative: "845190"
+    keywords:
+      - "Spindelmutter"
+      - "spindle nut"
+      - "ball screw nut"
+      - "lead screw"
+
+  - id: "MON-003"
+    name: "Monforts Torlonbuchse (mit/ohne Schmierfenster)"
+    name_de: "Monforts Torlonbuchse"
+    name_en: "Monforts Torlon Bushing (with/without lubrication window)"
+    brand: "Monforts"
+    oem: "Monforts"
+    category: "bushing"
+    material: "torlon"
+    hs_primary: "848330"
+    hs_fallback: "392690"
+    keywords:
+      - "Torlonbuchse"
+      - "Schmierfenster"
+      - "torlon bushing"
+      - "self-lubricating"
+
+  - id: "MON-004"
+    name: "Monforts Herkules Kette Gleitstein"
+    name_de: "Monforts Herkules Kette Gleitstein"
+    name_en: "Monforts Hercules Chain Sliding Block"
+    brand: "Monforts"
+    oem: "Monforts"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Herkules"
+      - "Kette"
+      - "Gleitstein"
+      - "Hercules chain"
+
+  - id: "MON-005"
+    name: "Monforts Vertical Kette Buchsen (Groß/Klein)"
+    name_de: "Monforts Vertical Kette Buchsen"
+    name_en: "Monforts Vertical Chain Bushings (Large/Small)"
+    brand: "Monforts"
+    oem: "Monforts"
+    category: "bushing"
+    material: "plastic_injection"
+    hs_primary: "848330"
+    hs_fallback: "392690"
+    keywords:
+      - "Vertikalkette"
+      - "Buchse"
+      - "chain bushing"
+
+  # === KRANTZ ÜRÜNLERİ ===
+  - id: "KRZ-001"
+    name: "Krantz Gleitstein K30"
+    name_de: "Krantz Gleitstein K30"
+    name_en: "Krantz Sliding Block K30"
+    brand: "Krantz"
+    oem: "Krantz"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Gleitstein"
+      - "K30"
+      - "sliding block"
+      - "Krantz stenter"
+
+  # === ARTOS ÜRÜNLERİ ===
+  - id: "ART-001"
+    name: "Artos Gleitsteine (Groß/Klein)"
+    name_de: "Artos Gleitsteine Groß/Klein"
+    name_en: "Artos Sliding Blocks (Large/Small)"
+    brand: "Artos"
+    oem: "Artos"
+    category: "stenter_parts"
+    material: "plastic_injection"
+    hs_primary: "845190"
+    hs_fallback: "392690"
+    keywords:
+      - "Gleitstein"
+      - "sliding block"
+      - "Artos stenter"
+
+  - id: "ART-002"
+    name: "Artos Buchsen (Groß/Klein)"
+    name_de: "Artos Buchsen Groß/Klein"
+    name_en: "Artos Bushings (Large/Small)"
+    brand: "Artos"
+    oem: "Artos"
+    category: "bushing"
+    material: "plastic_injection"
+    hs_primary: "848330"
+    hs_fallback: "392690"
+    keywords:
+      - "Buchse"
+      - "bushing"
+      - "Artos"
+
+  # === SANTEX ÜRÜNLERİ ===
+  - id: "SNT-001"
+    name: "Santex Buchsen (Groß/Klein)"
+    name_de: "Santex Buchsen Groß/Klein"
+    name_en: "Santex Bushings (Large/Small)"
+    brand: "Santex"
+    oem: "Santex"
+    category: "bushing"
+    material: "plastic_injection"
+    hs_primary: "848330"
+    hs_fallback: "392690"
+    keywords:
+      - "Buchse"
+      - "bushing"
+      - "Santex"
+
+# ============================================================================
+# OEM MARKA LİSTESİ (Tersine mühendislik için)
+# ============================================================================
+oem_brands:
+  - name: "Brückner"
+    full_name: "Brückner Textile Technologies GmbH & Co. KG"
+    website: "https://www.brueckner-textile.com"
+    headquarters: "Germany"
+    products: ["stenter", "dryer", "coating", "sanforizing"]
+    
+  - name: "Monforts"
+    full_name: "A. Monforts Textilmaschinen GmbH & Co. KG"
+    website: "https://www.monforts.de"
+    headquarters: "Germany"
+    products: ["stenter", "dyeing", "finishing", "coating"]
+    
+  - name: "Krantz"
+    full_name: "Krantz GmbH"
+    website: "https://www.krantz.de"
+    headquarters: "Germany"
+    products: ["stenter", "dryer", "heat recovery"]
+    
+  - name: "Artos"
+    full_name: "Artos Engineering"
+    website: "https://www.artos.de"
+    headquarters: "Germany"
+    products: ["stenter", "finishing", "textile machinery"]
+    
+  - name: "Santex"
+    full_name: "Santex Rimar Group"
+    website: "https://www.santexrimar.com"
+    headquarters: "Italy"
+    products: ["stenter", "washing", "finishing", "coating"]
+
+# ============================================================================
+# HEDEF MÜŞTERİ TİPLERİ
+# ============================================================================
+target_customer_types:
+  - type: "textile_finishing_mill"
+    description: "Kumaş terbiye fabrikaları - stenter kullanıcıları"
+    keywords:
+      - "dyeing and finishing"
+      - "textile finishing"
+      - "fabric finishing"
+      - "terbiye"
+      - "boyahane"
+    priority: 1
+    
+  - type: "denim_finishing"
+    description: "Denim terbiye tesisleri"
+    keywords:
+      - "denim finishing"
+      - "denim laundry"
+      - "denim washing"
+      - "indigo dyeing"
+    priority: 1
+    
+  - type: "home_textile"
+    description: "Ev tekstili üreticileri"
+    keywords:
+      - "home textile"
+      - "ev tekstili"
+      - "bedding"
+      - "towel"
+      - "upholstery"
+    priority: 2
+    
+  - type: "technical_textile"
+    description: "Teknik tekstil üreticileri"
+    keywords:
+      - "technical textile"
+      - "nonwoven"
+      - "industrial fabric"
+      - "coating"
+    priority: 2
+    
+  - type: "spare_parts_dealer"
+    description: "Yedek parça bayileri/distribütörleri"
+    keywords:
+      - "spare parts"
+      - "yedek parça"
+      - "textile machinery parts"
+      - "stenter parts dealer"
+    priority: 3
+
+# ============================================================================
+# ARAMA SORGULARI (Brave API için optimize edilmiş)
+# ============================================================================
+search_queries:
+  product_based:
+    - '"{brand}" stenter customer textile finishing'
+    - '"{brand}" Montex installation reference'
+    - '"{brand}" dyeing finishing Turkey Egypt Brazil'
+    - 'textile finishing "{brand}" stenter spare parts'
+    - '"{brand}" ram parçaları müşteri referans'
+    
+  oem_customer_hunt:
+    - '"{oem}" stenter installation {country}'
+    - '"{oem}" textile machinery {country} reference'
+    - '"{oem}" finishing line commissioned {country}'
+    - '"{oem}" Montex Spannrahmen {country}'
+    
+  spare_parts:
+    - 'stenter spare parts {country} import'
+    - 'textile finishing machinery parts {country}'
+    - '"{oem}" ersatzteile textile'
+    - 'Gleitstein Gleitleiste stenter {country}'
+
+  comtrade_hs:
+    - 'HS 845190 import {country}'
+    - 'HS 848330 import {country}'
+    - 'HS 392690 textile parts import {country}'

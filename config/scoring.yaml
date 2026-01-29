@@ -1,0 +1,46 @@
+weights:
+  fit_weight: 0.4
+  capacity_weight: 0.2
+  import_priority_weight: 0.2
+  reachability_weight: 0.2
+
+fit_keywords:
+  - "stenter"
+  - "finishing"
+  - "dyeing"
+  - "textile mill"
+  - "spare parts"
+  - "retrofit"
+  - "modernization"
+
+capacity_keywords:
+  - "plant"
+  - "factory"
+  - "capacity"
+  - "employees"
+  - "facility"
+  - "mills"
+  - "production line"
+
+export:
+  allowed_source_types:
+    - "gots"
+    - "bettercotton"
+    - "competitor"
+    - "competitor_search"
+    - "egypt_tec"
+    - "oekotex"
+    - "bluesign"
+    - "amith"
+    - "abit"
+    - "directory"
+    - "egypt_tec"
+  min_score: 1.0
+  exclude_name_keywords:
+    - "withdrawn"
+    - "suspended"
+  lookalike_top_countries: 5
+  require_reachability: true
+  require_reachability_level: "contact"
+
+trade_priority_path: "data/processed/country_priority_comtrade.csv"

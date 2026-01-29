@@ -1,0 +1,8 @@
+respect_robots: true
+max_rps_per_domain: 0.2
+user_agent: "ALMANYA-LeadIntel/2.0 (B2B Market Research)"
+disallow_login_required: true
+disallow_linkedin_scraping: true
+cache_raw_html: true
+cache_extracted_text: true
+evidence_log: true
