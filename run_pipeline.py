@@ -416,6 +416,45 @@ class LeadIntelPipeline:
         return len(deduped_df)
     
     # =========================================================================
+    # STAGE 3.5: ENTITY QUALITY GATE (NEW - project_v3 recommendation)
+    # =========================================================================
+    
+    def apply_quality_gate(self):
+        """Apply entity quality filtering to reject non-companies."""
+        self.log_stage("ENTITY QUALITY GATE - Filtering Non-Companies")
+        
+        from src.processors.entity_quality_gate import EntityQualityGate
+        
+        enriched_path = self.project_root / "data" / "staging" / "leads_enriched.csv"
+        
+        if not enriched_path.exists():
+            enriched_path = self.project_root / "data" / "staging" / "leads_raw.csv"
+        
+        if not enriched_path.exists():
+            logger.error("No leads found for quality gate")
+            return 0
+        
+        df = pd.read_csv(enriched_path, on_bad_lines='skip')
+        logger.info(f"Quality checking {len(df)} leads...")
+        
+        gate = EntityQualityGate()
+        leads_list = df.to_dict('records')
+        filtered = gate.filter_leads(leads_list)
+        
+        # Save filtered leads back
+        filtered_df = pd.DataFrame(filtered)
+        filtered_df.to_csv(enriched_path, index=False)
+        
+        stats = gate.get_stats()
+        logger.info(f"\nQuality Gate Results:")
+        logger.info(f"  Rejected: {stats['total_rejected']}")
+        for grade, count in stats['grade_distribution'].items():
+            pct = (count / len(df) * 100) if len(df) > 0 else 0
+            logger.info(f"  Grade {grade}: {count} ({pct:.1f}%)")
+        
+        return len(filtered)
+    
+    # =========================================================================
     # STAGE 4: SCORE
     # =========================================================================
     
@@ -473,7 +512,55 @@ class LeadIntelPipeline:
         return len(scored_df)
     
     # =========================================================================
-    # STAGE 5: EXPORT
+    # STAGE 5.5: CUSTOMER QUALIFICATION (NEW)
+    # =========================================================================
+    
+    def qualify_customers(self):
+        """Qualify leads as real stenter customers."""
+        self.log_stage("CUSTOMER QUALIFICATION - Finding Real Customers")
+        
+        from src.processors.customer_qualifier import CustomerQualifier
+        
+        master_path = self.project_root / "data" / "processed" / "leads_master.csv"
+        
+        if not master_path.exists():
+            logger.error("No master leads found")
+            return 0
+        
+        df = pd.read_csv(master_path, on_bad_lines='skip')
+        logger.info(f"Qualifying {len(df)} leads...")
+        
+        qualifier = CustomerQualifier()
+        leads_list = df.to_dict('records')
+        
+        qualified = []
+        for lead in leads_list:
+            result = qualifier.qualify_lead(lead)
+            lead.update(result)
+            if result.get('is_qualified'):
+                qualified.append(lead)
+        
+        # Save qualified customers
+        output_dir = self.project_root / "outputs" / "crm"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        qualified_df = pd.DataFrame(qualified)
+        qualified_df.to_csv(output_dir / "qualified_customers.csv", index=False)
+        
+        logger.info(f"\nQualification Results:")
+        logger.info(f"  Qualified: {len(qualified)} / {len(df)} ({100*len(qualified)/max(1,len(df)):.1f}%)")
+        
+        # Show by source
+        if qualified:
+            by_source = qualified_df.groupby('source_type').size().to_dict()
+            logger.info(f"\n  By Source:")
+            for source, count in sorted(by_source.items(), key=lambda x: -x[1]):
+                logger.info(f"    {source}: {count}")
+        
+        return len(qualified)
+    
+    # =========================================================================
+    # STAGE 6: EXPORT
     # =========================================================================
     
     def export(self):
@@ -556,13 +643,19 @@ class LeadIntelPipeline:
             # Stage 2: Enrich
             self.enrich()
             
-            # Stage 3: Dedupe
+            # Stage 3: Entity Quality Gate (NEW - from project_v3)
+            self.apply_quality_gate()
+            
+            # Stage 4: Dedupe
             self.dedupe()
             
-            # Stage 4: Score
+            # Stage 5: Score
             self.score()
             
-            # Stage 5: Export
+            # Stage 6: Customer Qualification (NEW)
+            self.qualify_customers()
+            
+            # Stage 7: Export
             self.export()
             
         except Exception as e:

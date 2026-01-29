@@ -226,14 +226,39 @@ class Scorer:
         return 20 if self._region_match(context_text) else 0
 
     def _reachability_score(self, lead):
+        """
+        Calculate reachability score with proper list/string parsing.
+        FIXED: Handles CSV-serialized lists like '[]' or '["a@b.com"]'
+        """
         score = 0
-        if lead.get("emails"):
+        
+        # Helper to check if field has real data
+        def has_real_data(field_value):
+            if not field_value:
+                return False
+            if isinstance(field_value, list):
+                return len(field_value) > 0
+            # Handle string representations from CSV
+            val_str = str(field_value).strip()
+            if val_str.lower() in ('', '[]', 'nan', 'none', 'null', '{}'):
+                return False
+            # Check for actual list content
+            if val_str.startswith('[') and val_str.endswith(']'):
+                import ast
+                try:
+                    parsed = ast.literal_eval(val_str)
+                    return isinstance(parsed, list) and len(parsed) > 0
+                except (ValueError, SyntaxError):
+                    return False
+            return True
+        
+        if has_real_data(lead.get("emails")):
             score += 10
-        if lead.get("phones"):
+        if has_real_data(lead.get("phones")):
             score += 6
-        if lead.get("websites") or lead.get("website"):
+        if has_real_data(lead.get("websites")) or has_real_data(lead.get("website")):
             score += 3
-        if lead.get("contact_page_found") or lead.get("contact_urls"):
+        if lead.get("contact_page_found") or has_real_data(lead.get("contact_urls")):
             score += 1
         return min(20, score)
 

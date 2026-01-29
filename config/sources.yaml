@@ -218,3 +218,178 @@ directories:
       item: ".member"
       name: ".member-name"
       website: "a"
+
+# =============================================================================
+# OFFICIAL ASSOCIATION DIRECTORIES (High-trust sources from project_v3)
+# =============================================================================
+
+eu_associations:
+  # Germany - Textile Associations
+  - id: suedwesttextil_members
+    name: "Südwesttextil Mitgliederverzeichnis"
+    url: "https://www.suedwesttextil.de/mitglieder"
+    type: "html_directory"
+    enabled: true
+    country: "DE"
+    parser: "member_cards"
+    evidence: true
+    tags: ["association", "official", "germany", "high_trust"]
+  
+  - id: textil_mode_members
+    name: "Textil+Mode Mitgliedsverbände"
+    url: "https://textil-mode.de/de/verband/mitgliederverbaende/"
+    type: "hub_directory"
+    enabled: true
+    country: "DE"
+    parser: "association_links"
+    tags: ["umbrella", "germany", "seed_source"]
+
+  # Switzerland
+  - id: swiss_textiles_members
+    name: "Swiss Textiles Member Index"
+    url: "https://www.swisstextiles.ch/en/members/"
+    type: "html_directory"
+    enabled: true
+    country: "CH"
+    parser: "member_list"
+    evidence: true
+    tags: ["association", "official", "dach", "high_trust"]
+
+  # EU Umbrella
+  - id: euratex_members
+    name: "EURATEX National Associations"
+    url: "https://euratex.eu/about-euratex/membership/our-members/"
+    type: "hub_directory"
+    enabled: true
+    country: "EU"
+    parser: "association_links"
+    tags: ["umbrella", "eu", "seed_source"]
+    note: "Seed source - crawl each national association for members"
+
+# DACH Machinery (OEM ecosystem - for installed base intel)
+machinery_associations:
+  - id: vdma_textile_machinery
+    name: "VDMA Textile Machinery Companies"
+    url: "https://vdma-products.com/en/vdma_products_mini_search/companies?f%5B0%5D=endpoints_target_taxonomy_term%3A49952"
+    type: "company_search"
+    enabled: true
+    country: "DE"
+    parser: "vdma_search"
+    tags: ["machinery", "oem_ecosystem", "germany"]
+    note: "OEM/service companies - useful for installed base data"
+
+# =============================================================================
+# GLOBAL TRADE FAIRS (Exhibitor directories)
+# =============================================================================
+
+global_fairs:
+  # Messe Frankfurt cluster
+  - id: techtextil_exhibitors
+    name: "Techtextil Exhibitor Search"
+    url: "https://techtextil.messefrankfurt.com/frankfurt/en/exhibitor-search.html"
+    type: "exhibitor_search"
+    enabled: true
+    country: "DE"
+    parser: "messefrankfurt_search"
+    evidence: true
+    tags: ["fair", "exhibitors", "technical_textile"]
+    product_categories: ["finishing", "dyeing", "coating"]
+  
+  - id: texprocess_exhibitors
+    name: "Texprocess Exhibitor Search"
+    url: "https://texprocess.messefrankfurt.com/frankfurt/en/exhibitor-search.html"
+    type: "exhibitor_search"
+    enabled: true
+    country: "DE"
+    parser: "messefrankfurt_search"
+    tags: ["fair", "exhibitors", "processing"]
+  
+  - id: heimtextil_exhibitors
+    name: "Heimtextil Exhibitor Search"
+    url: "https://heimtextil.messefrankfurt.com/frankfurt/en/exhibitor-search.html"
+    type: "exhibitor_search"
+    enabled: true
+    country: "DE"
+    parser: "messefrankfurt_search"
+    tags: ["fair", "exhibitors", "home_textile"]
+
+  # ITMA cluster
+  - id: itma_asia_exhibitors
+    name: "ITMA ASIA + CITME Exhibitors"
+    url: "https://www.itmaasia.com/channels/123.html"
+    type: "exhibitor_list"
+    enabled: true
+    country: "CN"
+    parser: "itma_list"
+    tags: ["fair", "exhibitors", "asia"]
+
+  # Turkey
+  - id: itm_exhibitors
+    name: "ITM Istanbul Exhibitors"
+    url: "https://www.itmexhibition.com/exhibitor-list/"
+    type: "exhibitor_list"
+    enabled: true
+    country: "TR"
+    parser: "itm_list"
+    tags: ["fair", "exhibitors", "turkey"]
+
+# =============================================================================
+# FACILITY DATABASES (Customer verification - project_v3 recommendation)
+# =============================================================================
+
+facility_sources:
+  - id: opensupplyhub_api
+    name: "Open Supply Hub Facilities API"
+    url: "https://opensupplyhub.org/api/facilities/"
+    docs_url: "https://info.opensupplyhub.org/resources/how-to-use-os-hub-api"
+    type: "api"
+    enabled: true
+    auth: "none"  # Free API
+    tags: ["facility", "global", "verification", "high_trust"]
+    filters:
+      facility_type: ["finishing", "dyeing", "printing", "washing"]
+    note: "Use for customer verification - confirms facility exists"
+
+  - id: slcp_facilities
+    name: "SLCP Gateway Facilities"
+    url: "https://slcpgateway.sustainabilitymap.org/facilities"
+    type: "web_search"
+    enabled: false
+    tags: ["facility", "compliance", "verification"]
+
+# =============================================================================
+# OEM REFERENCE SOURCES (Direct customer intel)
+# =============================================================================
+
+oem_references:
+  - id: bruckner_news
+    name: "Brückner News & References"
+    base_url: "https://www.brueckner-textile.com"
+    reference_paths:
+      - "/en/news/"
+      - "/en/references/"
+    type: "oem_scrape"
+    enabled: true
+    oem_brand: "Brückner"
+    tags: ["oem", "reference", "high_trust"]
+    
+  - id: monforts_news
+    name: "Monforts News & References"
+    base_url: "https://www.monforts.de"
+    reference_paths:
+      - "/en/news/"
+      - "/en/references/"
+    type: "oem_scrape"
+    enabled: true
+    oem_brand: "Monforts"
+    tags: ["oem", "reference", "high_trust"]
+
+  - id: santex_news
+    name: "Santex Rimar News"
+    base_url: "https://www.santexrimar.com"
+    reference_paths:
+      - "/news/"
+    type: "oem_scrape"
+    enabled: true
+    oem_brand: "Santex"
+    tags: ["oem", "reference"]
