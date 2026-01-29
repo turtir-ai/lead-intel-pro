@@ -196,8 +196,36 @@ brazil:
     name: "Texbrasil Companies"
     base_url: "https://texbrasil.com.br"
     sitemap_url: "https://texbrasil.com.br/sitemap_index.xml"
-    max_pages: 150
+    max_pages: 500
     country: "Brazil"
+    notes: "Apex-Brasil's official textile export program - high quality source"
+
+# === V5: GÜNEY AMERİKA ÖNCELİKLİ KAYNAKLAR ===
+south_america_priority:
+  texbrasil_pagination:
+    enabled: true
+    base_url: "https://texbrasil.com.br/en/companies/"
+    max_pages: 20
+    page_pattern: "page/{page}/"
+    country: "Brazil"
+    
+  argentina_directories:
+    - name: "Fundación ProTejer"
+      url: "https://www.fundacionprotejer.org"
+      enabled: false
+      notes: "Argentina textile foundation - needs Playwright"
+    - name: "Cámara Industrial Argentina de la Indumentaria"
+      url: "https://www.ciai.org.ar"
+      enabled: false
+      
+  colombia_directories:
+    - name: "Inexmoda"
+      url: "https://www.inexmoda.org.co"
+      enabled: false
+      notes: "Colombia fashion & textile - needs Playwright"
+    - name: "Cámara Colombiana de Confección"
+      url: "https://www.ccconfeccion.com"
+      enabled: false
 
 fairs:
   - name: "Example Fair Directory"

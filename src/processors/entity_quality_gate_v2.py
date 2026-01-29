@@ -199,23 +199,60 @@ class EntityQualityGateV2:
         """
         company_lower = company.lower().strip()
         
-        # 0. Preserve known manufacturers/OEMs
-        if source_type in ('known_manufacturer', 'oem_customer'):
-            return None
+        # === V5 FIX: Always check for garbage, even from "trusted" sources ===
+        # oem_customer and known_manufacturer can still produce garbage entities
         
-        # 1. Title/headline pattern
+        # 0. Minimum length check
+        if len(company.strip()) < 3:
+            return f'Name too short: {company}'
+        
+        # 1. Article fragments (the, of, in, a, an + noun)
+        article_pattern = re.compile(
+            r'^(the|of|in|a|an|to|for|with|from|by)\s+\w+$',
+            re.IGNORECASE
+        )
+        if article_pattern.match(company):
+            return f'Article fragment: {company}'
+        
+        # 2. Title/headline pattern
         if self.TITLE_PATTERNS.search(company):
             return f'Title pattern: {company[:50]}'
         
-        # 2. Sentence fragment
+        # 3. Sentence fragment
         if self.SENTENCE_PATTERNS.search(company):
             return f'Sentence fragment: {company[:50]}'
         
-        # 3. Person/role pattern
+        # 4. Person/role pattern
         if self.PERSON_PATTERNS.search(company):
             return f'Person/role pattern: {company[:50]}'
         
-        # 4. Machine/product name (but not OEM company name)
+        # 4.5 V5: Garbage single words (common in oem_customer extractions)
+        garbage_words = {
+            'what', 'does', 'how', 'when', 'where', 'why', 'who', 'which',
+            'upcoming', 'new', 'latest', 'best', 'top', 'modern', 'advanced',
+            'using', 'used', 'uses', 'about', 'more', 'less', 'very', 'much',
+            'also', 'even', 'just', 'only', 'some', 'any', 'all', 'each',
+            'other', 'such', 'same', 'different', 'various', 'several',
+            'ckner', 'nforts', 'antz', 'rtos', 'ntex',  # Truncated OEM names
+        }
+        if company_lower in garbage_words:
+            return f'Garbage word: {company}'
+        
+        # 4.6 V5: Truncated company names (starts with lowercase or weird pattern)
+        if company and not company[0].isupper() and len(company) > 2:
+            # Likely a truncated name like "ckner Textile" from "Brückner Textile"
+            return f'Truncated name (no capital start): {company[:30]}'
+        
+        # 4.7 V5: adjective + textile/machinery pattern without company suffix
+        adj_noun_pattern = re.compile(
+            r'^(upcoming|new|latest|modern|advanced|sustainable|technical|home|quality|german|turkish|brazilian)\s+'
+            r'(textile|textiles|machinery|machine|machines|fabric|fabrics|finishing|dyeing)s?$',
+            re.IGNORECASE
+        )
+        if adj_noun_pattern.match(company):
+            return f'Adjective + generic noun: {company}'
+        
+        # 5. Machine/product name (but not OEM company name)
         if self.MACHINE_PATTERNS.search(company):
             # Check if it's just the OEM name alone (that's OK)
             words = company_lower.split()
@@ -224,29 +261,29 @@ class EntityQualityGateV2:
             else:
                 return f'Machine/product name: {company[:50]}'
         
-        # 5. Single word + generic term
+        # 6. Single word + generic term
         words = company_lower.split()
         if len(words) == 1 and words[0] in self.GENERIC_TERMS:
             return f'Single generic term: {company}'
         
-        # 6. All words are generic (up to 3 words)
+        # 7. All words are generic (up to 3 words)
         if 1 <= len(words) <= 3:
             clean_words = [w for w in words if w not in {'of', 'the', 'and', 'for', 'in', 'on', 'to'}]
             if all(w in self.GENERIC_TERMS for w in clean_words):
                 return f'All generic terms: {company}'
         
-        # 7. Check for marketplace/news domain in source
+        # 8. Check for marketplace/news domain in source
         if source_url:
             source_lower = source_url.lower()
             for domain in self.REJECT_DOMAINS:
                 if domain in source_lower:
                     return f'Rejected domain: {domain}'
         
-        # 8. Very long name (likely article title)
+        # 9. Very long name (likely article title)
         if len(company) > 80:
             return f'Name too long ({len(company)} chars)'
         
-        # 9. Contains multiple colons or special punctuation
+        # 10. Contains multiple colons or special punctuation
         if company.count(':') > 1 or company.count('|') > 0:
             return f'Multiple colons/pipes: {company[:50]}'
         

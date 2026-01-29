@@ -34,13 +34,15 @@ export:
     - "amith"
     - "abit"
     - "directory"
-    - "egypt_tec"
-  min_score: 1.0
+    - "fair"
+    - "known_manufacturer"
+    - "precision_search"
+  min_score: 0.5
   exclude_name_keywords:
     - "withdrawn"
     - "suspended"
   lookalike_top_countries: 5
   require_reachability: true
-  require_reachability_level: "contact"
+  require_reachability_level: "website"
 
 trade_priority_path: "data/processed/country_priority_comtrade.csv"

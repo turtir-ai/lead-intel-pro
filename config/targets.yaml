@@ -27,16 +27,51 @@ south_america:
         - "Brazilian denim manufacturer stenter"
         - "tecelagem Brasil Monforts"
         - "tinturaria Brasil Brückner"
+        - "acabamento textil Brasil"
+        - "ramosa textil Brasil"
+        - "beneficiamento textil"
       known_manufacturers:
+        # === BÜYÜK DENIM & FINISHING ===
         - "Vicunha Têxtil"
+        - "Vicunha Textil S/A"
         - "Santana Textiles"
+        - "Santana Têxtil"
         - "Coteminas"
+        - "CIT Denim"
+        - "Cedro Têxtil"
+        - "Cedro Cachoeira"
+        - "Canatiba"
+        - "Tavex Brasil"
+        # === EV TEKSTİLİ ===
         - "Döhler"
+        - "Dohler"
         - "Karsten"
         - "Teka Tecelagem"
-        - "Cedro Têxtil"
+        - "Teka Brasil"
+        - "Buddemeyer"
+        - "Altenburg"
+        - "Lepper"
+        - "Artex"
+        - "MMartan"
+        # === FINISHING & DYEING ===
         - "Paramount Textiles"
-        - "CIT Denim"
+        - "Marisol"
+        - "Hering"
+        - "Malwee"
+        - "Menegotti"
+        - "AMC Têxtil"
+        - "Têxtil Renaux"
+        - "Têxtil Farbe"
+        - "Fiação São Bento"
+        - "Fábrica de Tecidos Tatuapé"
+        # === KNITWEAR & FINISHING ===
+        - "Lunender"
+        - "Cambuci"
+        - "Penalty"
+        - "Adatex"
+        - "Macias Têxtil"
+        - "Santaconstância"
+        - "Textil Canatiba"
         
     argentina:
       code: "ARG"
@@ -50,13 +85,34 @@ south_america:
         - "acabado textil Argentina"
         - "Argentina stenter Monforts"
         - "tintorería Argentina rama"
+        - "hilado Argentina textil"
+        - "Buenos Aires textile mill"
       known_manufacturers:
+        # === BÜYÜK ÜRETICILER ===
         - "AustralTex Group"
+        - "AustralTex"
         - "TN Platex"
         - "Alpargatas SAIC"
+        - "Alpargatas Argentina"
         - "Gaby Salinas"
         - "Textil Iberia"
         - "Manufactura Algodonera"
+        # === DENIM & FINISHING ===
+        - "Santista Textil"
+        - "Guilford Argentina"
+        - "Coteminas Argentina"
+        - "Hilados Rosamonte"
+        - "Textil Rafaela"
+        - "Sucesores de Alfredo Williner"
+        # === EV TEKSTİLİ & DYEING ===
+        - "Grafa"
+        - "Algodonera del Sur"
+        - "Textiles Rafaela"
+        - "Industrias Textiles de Sudamérica"
+        - "Frigorífico Textil"
+        - "Hilandería Rosarino"
+        - "Textil Escalada"
+        - "Textiles San Luis"
         
     colombia:
       code: "COL"
@@ -70,12 +126,28 @@ south_america:
         - "tintorería Colombia rama"
         - "Fabricato Colombia"
         - "Colombia denim manufacturer"
+        - "Medellín textile factory"
+        - "teñido industrial Colombia"
       known_manufacturers:
+        # === BÜYÜK ÜRETICILER ===
         - "Fabricato"
         - "Coltejer"
         - "Enka de Colombia"
         - "Protela"
         - "Manufacturas Eliot"
+        # === DENIM & FINISHING ===
+        - "Crystal"
+        - "Lafayette"
+        - "Supertex"
+        - "Textiles del Caribe"
+        - "Vestimenta"
+        - "Industrias Cannon de Colombia"
+        - "Textiles Miratex"
+        - "Cannon de Colombia"
+        # === DYEING ===
+        - "Tintorería Industrial"
+        - "Colorquímica"
+        - "Textiles Balalaika"
         
     peru:
       code: "PER"
@@ -88,13 +160,30 @@ south_america:
         - "acabado textil Peru"
         - "teñido Peru tela"
         - "Peru stenter manufacturer"
+        - "Lima textile factory"
+        - "algodón Pima Peru"
       known_manufacturers:
+        # === BÜYÜK ÜRETICILER ===
         - "Creditex"
         - "Textil San Cristobal"
         - "Devanlay Peru"
         - "Topy Top"
         - "Textil del Valle"
         - "Inca Tops"
+        # === PAMUK & FINISHING ===
+        - "Hilandería de Algodón Peruano"
+        - "Michell y Cía"
+        - "Inca Alpaca"
+        - "Textimax"
+        - "Perú Pima"
+        - "Southern Textile Network"
+        - "Cotton Knit"
+        - "Industrias Nettalco"
+        # === KNITWEAR & DYEING ===
+        - "Textil Océano"
+        - "Textil San Ramón"
+        - "Textil Piura"
+        - "Industria Textil Piura"
         
     mexico:
       code: "MEX"

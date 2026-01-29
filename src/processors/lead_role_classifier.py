@@ -112,12 +112,12 @@ class LeadRoleClassifier:
     
     # Source type weights
     SOURCE_WEIGHTS = {
-        # High value (likely customer)
+        # High value (likely customer) - V5 updated
+        'known_manufacturer': 1.0,  # Highest - pre-verified from config
         'oem_customer': 0.9,
-        'known_manufacturer': 0.8,
-        'gots': 0.7,
-        'oekotex': 0.7,
-        'fair_exhibitor': 0.6,  # Could be customer or supplier
+        'gots': 0.8,              # GOTS certified = real producer
+        'oekotex': 0.8,           # OEKO-TEX certified = real producer
+        'fair_exhibitor': 0.6,    # Could be customer or supplier
         'facility_verified': 0.8,
         
         # Medium value

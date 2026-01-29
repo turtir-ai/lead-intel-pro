@@ -11,20 +11,43 @@ logger = get_logger(__name__)
 
 
 ISO3_TO_ISO2 = {
-    "MAR": "MA",
-    "DZA": "DZ",
-    "TUN": "TN",
-    "EGY": "EG",
+    # South America
     "BRA": "BR",
     "ARG": "AR",
     "COL": "CO",
     "PER": "PE",
+    "MEX": "MX",
+    "CHL": "CL",
+    "ECU": "EC",
+    # North Africa
+    "MAR": "MA",
+    "DZA": "DZ",
+    "TUN": "TN",
+    "EGY": "EG",
+    "LBY": "LY",
+    # South Asia
+    "PAK": "PK",
+    "IND": "IN",
+    "BGD": "BD",
+    "LKA": "LK",
+    # Turkey
+    "TUR": "TR",
+    # Europe
     "DEU": "DE",
     "NLD": "NL",
-    "TUR": "TR",
-    "USA": "US",
+    "ITA": "IT",
+    "ESP": "ES",
+    "PRT": "PT",
+    "FRA": "FR",
+    "GBR": "GB",
+    # Asia
     "CHN": "CN",
-    "IND": "IN",
+    "VNM": "VN",
+    "IDN": "ID",
+    "THA": "TH",
+    "UZB": "UZ",
+    # Other
+    "USA": "US",
 }
 
 

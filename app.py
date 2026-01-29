@@ -19,10 +19,13 @@ from src.collectors.oekotex_directory import OekoTexDirectory
 from src.collectors.bluesign_partners import BluesignPartners
 from src.collectors.amith_directory import AmithDirectory
 from src.collectors.abit_directory import AbitDirectory
+from src.collectors.known_manufacturers import KnownManufacturersCollector
 from src.collectors.discovery.brave_search import BraveSearchClient, SourceDiscovery
 from src.processors.dedupe import LeadDedupe
 from src.processors.enricher import Enricher
 from src.processors.entity_extractor import EntityExtractor
+from src.processors.entity_quality_gate_v2 import EntityQualityGateV2
+from src.processors.lead_role_classifier import LeadRoleClassifier
 from src.processors.exporter import Exporter
 from src.processors.pdf_processor import PdfProcessor
 from src.processors.scorer import Scorer
@@ -48,15 +51,37 @@ def ensure_dirs():
         os.makedirs(path, exist_ok=True)
 
 def _target_country_labels(targets):
+    """Extract all country labels from targets config"""
     labels = []
+    # Check old format (target_regions)
     for _, data in (targets or {}).get("target_regions", {}).items():
         labels.extend(data.get("labels", []))
+    # Check new format (south_america, north_africa, etc.)
+    region_keys = ["south_america", "north_africa", "south_asia", "turkey", "other_markets"]
+    for region_key in region_keys:
+        region = (targets or {}).get(region_key, {})
+        countries = region.get("countries", {})
+        if isinstance(countries, dict):
+            for _, country_data in countries.items():
+                labels.extend(country_data.get("labels", []))
     return labels
 
 def _target_country_iso3(targets):
+    """Extract all country ISO3 codes from targets config"""
     codes = []
+    # Check old format (target_regions)
     for _, data in (targets or {}).get("target_regions", {}).items():
         codes.extend(data.get("countries", []))
+    # Check new format (south_america, north_africa, etc.)
+    region_keys = ["south_america", "north_africa", "south_asia", "turkey", "other_markets"]
+    for region_key in region_keys:
+        region = (targets or {}).get(region_key, {})
+        countries = region.get("countries", {})
+        if isinstance(countries, dict):
+            for _, country_data in countries.items():
+                code = country_data.get("code")
+                if code:
+                    codes.append(code)
     return codes
 
 def apply_env(settings):
@@ -216,6 +241,12 @@ def harvest(targets, competitors, settings, policies, sources):
         abit_leads = abit.harvest()
         all_leads.extend(abit_leads)
 
+    # === V5: Known Manufacturers from targets.yaml ===
+    known_mfg_collector = KnownManufacturersCollector(targets_config=targets)
+    known_mfg_leads = known_mfg_collector.harvest()
+    all_leads.extend(known_mfg_leads)
+    logger.info(f"Added {len(known_mfg_leads)} known manufacturers from config")
+
     pdf_results = pdf_processor.process_all_pdfs()
     for source, content in pdf_results.items():
         companies = extractor.extract_companies(content, strict=False)
@@ -295,8 +326,46 @@ def dedupe():
         return
     df = pd.read_csv("data/staging/leads_enriched.csv")
     leads = df.to_dict(orient="records")
+    
+    # === V5: Apply Quality Gate V2 BEFORE dedupe ===
+    quality_gate = EntityQualityGateV2()
+    quality_leads = []
+    rejected_count = 0
+    rejection_reasons = {}
+    
+    for lead in leads:
+        # grade_entity expects a lead dict, not individual params
+        grade, reason = quality_gate.grade_entity(lead)
+        lead["entity_quality"] = grade
+        lead["quality_reason"] = reason
+        
+        if grade != "REJECT":
+            quality_leads.append(lead)
+        else:
+            rejected_count += 1
+            rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+    
+    logger.info(f"Quality Gate V2: {len(quality_leads)} passed, {rejected_count} rejected")
+    for reason, count in sorted(rejection_reasons.items(), key=lambda x: -x[1])[:10]:
+        logger.info(f"  - {reason}: {count}")
+    
+    # === V5: Apply Role Classifier ===
+    classifier = LeadRoleClassifier()
+    customers, intermediaries, unknown = classifier.classify_leads(quality_leads)
+    logger.info(f"Role Classification: CUSTOMER={len(customers)}, INTERMEDIARY={len(intermediaries)}, UNKNOWN={len(unknown)}")
+    
+    # Mark roles
+    for lead in customers:
+        lead["lead_role"] = "CUSTOMER"
+    for lead in intermediaries:
+        lead["lead_role"] = "INTERMEDIARY"
+    for lead in unknown:
+        lead["lead_role"] = "UNKNOWN"
+    
+    all_classified = customers + intermediaries + unknown
+    
     deduper = LeadDedupe()
-    merged, audit = deduper.dedupe(leads)
+    merged, audit = deduper.dedupe(all_classified)
     pd.DataFrame(merged).to_csv("data/processed/leads_master.csv", index=False)
     pd.DataFrame(audit).to_csv("outputs/dedupe_audit.csv", index=False)
     logger.info(f"Dedupe complete: {len(merged)} leads retained.")
@@ -348,6 +417,28 @@ def score_and_export(targets, scoring):
         exporter.export_targets(scored, tag="_all")
 
     sales_ready = filtered
+    
+    # === V5: Prioritize CUSTOMER role and Grade A entities ===
+    # Filter by entity quality
+    grade_a = [lead for lead in sales_ready if lead.get("entity_quality") == "A"]
+    grade_b = [lead for lead in sales_ready if lead.get("entity_quality") == "B"]
+    grade_c = [lead for lead in sales_ready if lead.get("entity_quality") == "C"]
+    
+    logger.info(f"Entity Quality: A={len(grade_a)}, B={len(grade_b)}, C={len(grade_c)}")
+    
+    # Filter by role
+    customers_only = [lead for lead in sales_ready if lead.get("lead_role") == "CUSTOMER"]
+    intermediaries = [lead for lead in sales_ready if lead.get("lead_role") == "INTERMEDIARY"]
+    
+    logger.info(f"Role Distribution: CUSTOMER={len(customers_only)}, INTERMEDIARY={len(intermediaries)}")
+    
+    # === V5: Premium leads = Grade A + CUSTOMER role ===
+    premium_leads = [
+        lead for lead in sales_ready 
+        if lead.get("entity_quality") == "A" and lead.get("lead_role") == "CUSTOMER"
+    ]
+    logger.info(f"Premium Leads (Grade A + CUSTOMER): {len(premium_leads)}")
+    
     needs_enrichment = []
     if require_reachability:
         def _has_reachability(lead):
