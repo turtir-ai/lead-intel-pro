@@ -34,9 +34,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import pipeline components
 from src.processors.heuristic_scorer import HeuristicScorer, ScoreResult
-from src.processors.dedupe import Deduplicator
-from src.processors.enricher import LeadEnricher
-from src.processors.scorer import LeadScorer
+from src.processors.dedupe import LeadDedupe
+from src.processors.enricher import Enricher
+from src.processors.scorer import Scorer
 from src.processors.verifier import ContactVerifier
 from src.processors.role_classifier import RoleClassifier
 from src.extractors.email_guesser import EmailGuesser, guess_emails_for_leads
@@ -78,8 +78,8 @@ class PipelineV10:
         
         # Initialize components
         self.heuristic_scorer = HeuristicScorer(self.config_dir)
-        self.deduplicator = Deduplicator()
-        self.enricher = LeadEnricher()
+        self.deduplicator = LeadDedupe()
+        self.enricher = Enricher()
         self.verifier = ContactVerifier()
         self.role_classifier = RoleClassifier()
         self.email_guesser = EmailGuesser()
@@ -221,20 +221,31 @@ class PipelineV10:
         scored = []
         
         for lead in leads:
-            # Prepare text for scoring
-            text = " ".join([
-                lead.get("description", ""),
-                lead.get("about", ""),
-                lead.get("products", ""),
-                lead.get("services", ""),
-            ])
+            # Prepare text for scoring - handle NaN values
+            def safe_str(val):
+                if val is None:
+                    return ""
+                if isinstance(val, float) and pd.isna(val):
+                    return ""
+                s = str(val)
+                return "" if s == "nan" else s
             
-            title = lead.get("company_name", lead.get("name", ""))
+            # Use context field (primary) or fallback to other fields
+            text_parts = [
+                safe_str(lead.get("context", "")),
+                safe_str(lead.get("description", "")),
+                safe_str(lead.get("about", "")),
+                safe_str(lead.get("products", "")),
+                safe_str(lead.get("services", "")),
+            ]
+            text = " ".join(filter(None, text_parts))
+            
+            title = safe_str(lead.get("company", lead.get("company_name", lead.get("name", ""))))
             
             metadata = {
                 "company_name": title,
-                "country": lead.get("country", ""),
-                "source": lead.get("source", ""),
+                "country": safe_str(lead.get("country", "")),
+                "source": safe_str(lead.get("source", "")),
             }
             
             # Calculate score
@@ -273,10 +284,17 @@ class PipelineV10:
         if not quotas:
             return leads
             
+        # Helper function for safe string conversion
+        def safe_str(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return ""
+            s = str(val)
+            return "" if s == "nan" else s
+            
         # Group leads by region
         by_region = {}
         for lead in leads:
-            country = lead.get("country", "").lower()
+            country = safe_str(lead.get("country", "")).lower()
             region = self._get_region_for_country(country)
             
             if region not in by_region:
@@ -506,6 +524,7 @@ Examples:
   python run_pipeline_v10.py --test             # Test mode (3 sources)
   python run_pipeline_v10.py --mode=collect     # Collection only
   python run_pipeline_v10.py --mode=score       # Score existing leads
+  python run_pipeline_v10.py --input data/processed/leads_master.csv  # Process existing file
         """
     )
     
@@ -529,11 +548,71 @@ Examples:
         help="Minimum source priority (default: 60)"
     )
     
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=None,
+        help="Input CSV file with existing leads to score"
+    )
+    
     args = parser.parse_args()
     
     pipeline = PipelineV10()
     
-    if args.mode == "full":
+    if args.input:
+        # Score existing leads from file
+        input_path = Path(args.input)
+        if not input_path.is_absolute():
+            input_path = PROJECT_ROOT / args.input
+            
+        if not input_path.exists():
+            print(f"❌ Input file not found: {input_path}")
+            sys.exit(1)
+            
+        print(f"📂 Loading existing leads from: {input_path}")
+        df = pd.read_csv(input_path)
+        print(f"   → Loaded {len(df)} leads")
+        
+        # Convert to list of dicts for scoring
+        leads = df.to_dict('records')
+        
+        print(f"\n📊 Scoring with Heuristic Scorer...")
+        scored_leads = pipeline.score_leads(leads)
+        
+        # Filter qualified
+        qualified = [l for l in scored_leads if l.get("_is_lead")]
+        print(f"   → Qualified: {len(qualified)}/{len(scored_leads)}")
+        
+        # Add email guesses
+        print(f"\n📧 Adding email guesses...")
+        qualified = pipeline.add_email_guesses(qualified)
+        
+        # Apply region quotas
+        print(f"\n🌍 Applying region quotas...")
+        quota_leads = pipeline.apply_region_quotas(qualified)
+        
+        # Export
+        df_final = pd.DataFrame(quota_leads)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = pipeline.output_dir / "crm" / f"leads_v10_scored_{timestamp}.csv"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        df_final.to_csv(output_file, index=False)
+        
+        print(f"\n✅ Exported {len(df_final)} leads to: {output_file}")
+        
+        # Show sample
+        if len(df_final) > 0:
+            print(f"\n📋 Top 10 Scored Leads:")
+            print("-" * 80)
+            for i, lead in enumerate(quota_leads[:10]):
+                score = lead.get("_heuristic_score", 0)
+                conf = lead.get("_confidence", "?")
+                company = lead.get("company", "Unknown")[:40]
+                country = lead.get("country", "?")
+                hs = lead.get("_matched_hs_codes", [])
+                prod_match = "🎯" if lead.get("_product_match") else ""
+                print(f"  {i+1:2}. [{score:3.0f}] {conf:6} | {company:40} | {country:15} | HS:{hs} {prod_match}")
+    elif args.mode == "full":
         df = pipeline.run_full_pipeline(test_mode=args.test)
         print(f"\n✅ Pipeline complete: {len(df)} leads exported")
     else:

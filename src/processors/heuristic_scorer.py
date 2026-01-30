@@ -21,6 +21,7 @@
 
 import re
 import yaml
+import pandas as pd
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Tuple
@@ -332,7 +333,8 @@ class HeuristicScorer:
         # =====================================================================
         # 11. REGION BONUS (Target markets)
         # =====================================================================
-        country = metadata.get("country", "").lower()
+        country_val = metadata.get("country", "")
+        country = str(country_val).lower() if country_val and not (isinstance(country_val, float) and pd.isna(country_val)) else ""
         target_regions = {
             "south_america": ["brazil", "argentina", "colombia", "chile", "ecuador", "peru"],
             "north_africa": ["tunisia", "egypt", "algeria", "morocco"],
@@ -349,8 +351,8 @@ class HeuristicScorer:
         # DETERMINE FINAL CLASSIFICATION
         # =====================================================================
         
-        # Is it a lead?
-        is_lead = score >= 50
+        # Is it a lead? (threshold: 35 for more coverage, filter later by confidence)
+        is_lead = score >= 35
         
         # Confidence level
         if score >= 100:
@@ -359,6 +361,8 @@ class HeuristicScorer:
             confidence = "medium"
         elif score >= 50:
             confidence = "low"
+        elif score >= 35:
+            confidence = "marginal"
         else:
             confidence = "reject"
             

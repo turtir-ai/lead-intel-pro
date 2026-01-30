@@ -261,8 +261,15 @@ class EmailGuesser:
         """Extract clean domain from various input formats"""
         if not domain:
             return None
+        
+        # Handle NaN/float values
+        if isinstance(domain, float):
+            return None
             
-        domain = domain.strip().lower()
+        domain = str(domain).strip().lower()
+        
+        if domain == 'nan' or domain == 'none' or domain == '':
+            return None
         
         # Remove protocol
         domain = re.sub(r'^https?://', '', domain)
