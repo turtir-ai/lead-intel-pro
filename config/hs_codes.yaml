@@ -1,0 +1,343 @@
+# =============================================================================
+# HS CODES CONFIGURATION - V10 Lead Intel Pipeline
+# HS Code → Product Keyword Mapping for Textile Finishing Machinery Parts
+# =============================================================================
+# Based on user's product portfolio:
+# - Brückner, Monforts, Krantz, Santex, Artos stenter/ram parts
+# - Gleitstein, Buchse, Spindel Mutter, Öffner Segment, Kette components
+# =============================================================================
+
+version: "1.0"
+last_updated: "2025-01-30"
+
+# =============================================================================
+# PRIMARY HS CODES - Main Product Categories
+# =============================================================================
+
+primary_codes:
+  "845190":
+    name: "Textile finishing machinery parts"
+    description: "Parts for stenter, ram, calander, and other finishing machines"
+    keywords:
+      # Machine types
+      - stenter
+      - stentering
+      - ram machine
+      - calander
+      - sanfor
+      - sanforizing
+      - textile finishing
+      - fabric finishing
+      - heat setting
+      
+      # Chain/Clip components (Kette/Kluppen)
+      - nadelglied
+      - gleitstein
+      - gleitleiste
+      - kluppen
+      - clip chain
+      - pin chain
+      - tenter chain
+      - kette
+      - vertikal kette
+      
+      # Opener/Spreader components
+      - öffner segment
+      - opener segment
+      - spreader
+      - expander
+      
+      # General parts terminology (DE/EN)
+      - textile machinery parts
+      - finishing machine parts
+      - stenter parts
+      - ram parts
+      - ersatzteile
+      - verschleissteile
+      - wear parts
+      
+    fallback: "392690"
+    scoring_weight: 25
+
+  "848330":
+    name: "Plain shaft bearings / bushings"
+    description: "Bearing housings, plain shaft bearings, bushes"
+    keywords:
+      # Buchse variations
+      - buchse
+      - buchsen
+      - bushing
+      - bushings
+      - plain bearing
+      - plain shaft bearing
+      - sleeve bearing
+      - gleitlager
+      
+      # Specific products
+      - torlonbuchse
+      - torlon buchse
+      - führungsbuchse
+      - lagerbuchse
+      
+      # Material indicators
+      - mit schmierfenster
+      - ohne schmierfenster
+      - self-lubricating
+      
+    fallback: "392690"
+    scoring_weight: 25
+    notes: "Use 392690 fallback only if item is confirmed as spacer, not bearing"
+
+  "848340":
+    name: "Ball/roller screws"
+    description: "Gears and gearing, ball or roller screws"
+    keywords:
+      # Spindle/Screw components
+      - ball screw
+      - roller screw
+      - spindle
+      - spindel
+      - spindel mutter
+      - spindle nut
+      - kugelgewindetrieb
+      - gewindespindel
+      
+      # Motion components
+      - lead screw
+      - screw drive
+      - precision screw
+      
+    fallback: "848390"
+    scoring_weight: 25
+    notes: "Use 848390 fallback if classified as general transmission part"
+
+  "848390":
+    name: "8483 group general parts"
+    description: "Parts of gearing, ball screws, clutches, etc."
+    keywords:
+      - spindle nut
+      - nut assembly
+      - transmission parts
+      - getriebeteile
+      - parça
+      
+    fallback: "845190"
+    scoring_weight: 20
+    notes: "Use 845190 fallback if proven textile machinery end-use"
+
+# =============================================================================
+# FALLBACK HS CODES - Secondary Classification
+# =============================================================================
+
+fallback_codes:
+  "392690":
+    name: "Other articles of plastics"
+    description: "Fallback for plastic components when not classified elsewhere"
+    keywords:
+      - plastic
+      - plastik
+      - kunststoff
+      - polymer
+      - peek
+      - pom
+      - ptfe
+      - nylon
+      
+    scoring_weight: 15
+    notes: "Use when customs classifies as 'plastic article' rather than machine part"
+
+# =============================================================================
+# PRODUCT → HS CODE MAPPING - Specific User Products
+# =============================================================================
+
+product_hs_map:
+  # Brückner products
+  "brückner_nadelglied_gleitstein":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "nadelglied", "gleitstein"]
+    
+  "brückner_gleitleiste_269mm":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "gleitleiste", "269"]
+    
+  "brückner_kluppen_gleitstein_t_stück":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "kluppen", "gleitstein", "t-stück"]
+    
+  "brückner_kluppen_gleitstein_hinten":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "kluppen", "gleitstein", "hinten"]
+    
+  "brückner_vertikal_kette_sk999":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "vertikal", "kette", "sk", "999"]
+    
+  "brückner_öffner_segment_vii":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "öffner", "segment", "vii", "7"]
+    
+  "brückner_öffner_segment_70mm":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["brückner", "öffner", "segment", "70mm"]
+    
+  # Monforts products
+  "monforts_vertical_ketten_gleitstücke":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["monforts", "vertical", "ketten", "gleitstücke"]
+    
+  "monforts_spindel_mutter":
+    hs_code: "848340"
+    fallback: "845190"
+    keywords: ["monforts", "spindel", "mutter"]
+    notes: "Use 845190 fallback if proven textile machinery context"
+    
+  "monforts_torlonbuchse":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["monforts", "torlonbuchse", "torlon"]
+    notes: "Use 392690 fallback only if classified as spacer not bearing"
+    
+  "monforts_herkules_kette_gleitstein":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["monforts", "herkules", "kette", "gleitstein"]
+    
+  "monforts_vertical_kette_buchsen":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["monforts", "vertical", "kette", "buchsen"]
+    
+  # Krantz products
+  "krantz_gleitstein_k30":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["krantz", "gleitstein", "k30"]
+    
+  # Santex products
+  "santex_buchsen_klein":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["santex", "buchsen", "klein"]
+    
+  "santex_buchsen_gross":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["santex", "buchsen", "groß", "gross"]
+    
+  # Artos products
+  "artos_buchsen_klein":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["artos", "buchsen", "klein"]
+    
+  "artos_buchsen_gross":
+    hs_code: "848330"
+    fallback: "392690"
+    keywords: ["artos", "buchsen", "groß", "gross"]
+    
+  "artos_gleitsteine_klein":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["artos", "gleitsteine", "klein"]
+    
+  "artos_gleitsteine_gross":
+    hs_code: "845190"
+    fallback: "392690"
+    keywords: ["artos", "gleitsteine", "groß", "gross"]
+
+# =============================================================================
+# CLASSIFICATION RULES - Heuristic HS Code Assignment
+# =============================================================================
+
+classification_rules:
+  # Rule 1: Gleitstein/Gleitleiste/Öffner Segment/Kette → 845190
+  - pattern: "gleitstein|gleitleiste|öffner.*segment|kette.*parça"
+    primary_hs: "845190"
+    fallback_hs: "392690"
+    description: "Chain and clip wear parts for stenter machines"
+    
+  # Rule 2: Buchse → 848330 (unless spacer)
+  - pattern: "buchse|bushing|bearing"
+    primary_hs: "848330"
+    fallback_hs: "392690"
+    fallback_condition: "item is spacer not bearing"
+    description: "Plain shaft bearings and bushings"
+    
+  # Rule 3: Spindel Mutter → 848340
+  - pattern: "spindel.*mutter|spindle.*nut|ball.*screw"
+    primary_hs: "848340"
+    fallback_hs: "848390"
+    alt_fallback_hs: "845190"
+    alt_fallback_condition: "proven textile end-use"
+    description: "Ball screws and spindle nuts"
+
+# =============================================================================
+# HS CODE SCORING WEIGHTS - For Lead Qualification
+# =============================================================================
+
+scoring_weights:
+  # Primary HS codes get full weight
+  "845190": 25
+  "848330": 25
+  "848340": 25
+  "848390": 20
+  
+  # Fallback codes get reduced weight
+  "392690": 15
+  
+  # Related but lower priority codes
+  "845180": 15  # Other textile finishing machines
+  "845120": 15  # Drying machines
+  "845130": 15  # Ironing/pressing machines
+
+# =============================================================================
+# COMTRADE QUERY PARAMETERS
+# =============================================================================
+
+comtrade_config:
+  # Primary HS codes for trade data analysis
+  primary_hs_list:
+    - "845190"
+    - "848330"
+    - "848340"
+    
+  # Broader search for market sizing
+  extended_hs_list:
+    - "845190"
+    - "848330"
+    - "848340"
+    - "848390"
+    - "392690"
+    - "845180"
+    - "845120"
+    
+  # Reporter countries (Germany as exporter)
+  reporter: "276"  # Germany ISO code
+  
+  # Target import markets
+  partner_regions:
+    south_america:
+      - "032"  # Argentina
+      - "076"  # Brazil
+      - "152"  # Chile
+      - "170"  # Colombia
+      - "218"  # Ecuador
+      - "604"  # Peru
+    north_africa:
+      - "012"  # Algeria
+      - "818"  # Egypt
+      - "788"  # Tunisia
+      - "504"  # Morocco
+    middle_east:
+      - "792"  # Turkey
+      - "364"  # Iran
+      - "586"  # Pakistan
+      - "356"  # India

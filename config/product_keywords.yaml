@@ -1,0 +1,390 @@
+# =============================================================================
+# PRODUCT KEYWORDS CONFIGURATION - V10 Lead Intel Pipeline
+# OEM Machine Brands → Component Keywords for Customer Detection
+# =============================================================================
+# Purpose: Identify companies that USE these machines (customers, not OEMs)
+# If a company's website mentions Brückner + stenter parts → potential customer
+# =============================================================================
+
+version: "1.0"
+last_updated: "2025-01-30"
+
+# =============================================================================
+# OEM MACHINE MANUFACTURERS - These are NOT customers (suppliers)
+# =============================================================================
+
+oem_manufacturers:
+  # Major Stenter/Ram Manufacturers
+  - name: "Brückner"
+    aliases:
+      - "brückner"
+      - "bruckner"
+      - "brueckner"
+      - "brückner trockentechnik"
+      - "brückner textile technologies"
+    country: Germany
+    machine_types:
+      - stenter
+      - ram
+      - dryer
+      - coating
+    is_supplier: true
+    
+  - name: "Monforts"
+    aliases:
+      - "monforts"
+      - "a. monforts"
+      - "montex"
+    country: Germany
+    machine_types:
+      - stenter
+      - ram
+      - sanfor
+    is_supplier: true
+    
+  - name: "Krantz"
+    aliases:
+      - "krantz"
+      - "babcock krantz"
+    country: Germany
+    machine_types:
+      - stenter
+      - dryer
+      - coating
+    is_supplier: true
+    
+  - name: "Santex"
+    aliases:
+      - "santex"
+      - "santex rimar"
+      - "santex ag"
+    country: Switzerland
+    machine_types:
+      - stenter
+      - finishing
+    is_supplier: true
+    
+  - name: "Artos"
+    aliases:
+      - "artos"
+      - "artos engineering"
+    country: Germany
+    machine_types:
+      - stenter
+      - heat setting
+    is_supplier: true
+    
+  - name: "Benninger"
+    aliases:
+      - "benninger"
+      - "benninger ag"
+    country: Switzerland
+    machine_types:
+      - dyeing
+      - finishing
+      - washing
+    is_supplier: true
+    
+  - name: "Thies"
+    aliases:
+      - "thies"
+      - "thies gmbh"
+    country: Germany
+    machine_types:
+      - dyeing
+      - jet dyeing
+    is_supplier: true
+    
+  - name: "Fong's"
+    aliases:
+      - "fong's"
+      - "fongs"
+      - "fong's industries"
+    country: Hong Kong
+    machine_types:
+      - dyeing
+      - knit dyeing
+    is_supplier: true
+    
+  - name: "Goller"
+    aliases:
+      - "goller"
+      - "goller textilmaschinen"
+    country: Germany
+    machine_types:
+      - finishing
+      - washing
+    is_supplier: true
+    
+  - name: "Dilmenler"
+    aliases:
+      - "dilmenler"
+      - "dilmenler makina"
+    country: Turkey
+    machine_types:
+      - stenter
+      - sanfor
+    is_supplier: true
+
+# =============================================================================
+# COMPONENT KEYWORDS BY OEM - For Customer Detection
+# =============================================================================
+
+oem_component_keywords:
+  brückner:
+    high_value:
+      - nadelglied
+      - gleitstein
+      - gleitleiste
+      - kluppen
+      - öffner segment
+      - vertikal kette
+      - sk 999
+      - t-stück
+      - gleitstein hinten
+    medium_value:
+      - kette
+      - clip
+      - chain
+      - wear parts
+      - verschleißteile
+    low_value:
+      - filter
+      - gasket
+      - seal
+      
+  monforts:
+    high_value:
+      - spindel mutter
+      - torlonbuchse
+      - vertical ketten
+      - herkules kette
+      - gleitstücke
+    medium_value:
+      - buchsen
+      - kette
+      - chain parts
+    low_value:
+      - filter
+      - bearing
+      
+  krantz:
+    high_value:
+      - gleitstein k30
+      - k30
+    medium_value:
+      - gleitstein
+      - clip parts
+    low_value:
+      - general parts
+      
+  santex:
+    high_value:
+      - buchsen klein
+      - buchsen groß
+    medium_value:
+      - buchsen
+      - bearings
+    low_value:
+      - general parts
+      
+  artos:
+    high_value:
+      - buchsen klein
+      - buchsen groß
+      - gleitsteine klein
+      - gleitsteine groß
+    medium_value:
+      - buchsen
+      - gleitsteine
+    low_value:
+      - general parts
+
+# =============================================================================
+# CUSTOMER DETECTION PATTERNS
+# =============================================================================
+
+customer_detection:
+  # Pattern: Company uses OEM machines
+  usage_indicators:
+    high_confidence:
+      - "operates.*stenter"
+      - "running.*brückner"
+      - "monforts.*machines.*in.*operation"
+      - "equipped.*with.*stenter"
+      - "installed.*ram.*machine"
+      - "stenter.*line.*capacity"
+      - "finishing.*capacity.*meters"
+      
+    medium_confidence:
+      - "stenter"
+      - "ram machine"
+      - "finishing line"
+      - "sanfor"
+      - "calander"
+      
+    low_confidence:
+      - "textile finishing"
+      - "fabric processing"
+      - "dyeing"
+      
+  # Pattern: Company needs parts/service
+  parts_need_indicators:
+    high_confidence:
+      - "spare.*parts.*for.*stenter"
+      - "replacement.*parts"
+      - "maintenance.*service"
+      - "overhaul"
+      - "refurbishment"
+      
+    medium_confidence:
+      - "spare parts"
+      - "wear parts"
+      - "consumables"
+      
+  # Pattern: Company has specific OEM + component mention
+  oem_component_match:
+    scoring_bonus: 30
+    description: "Highest value - company explicitly mentions OEM + specific component"
+    examples:
+      - "brückner.*gleitstein"
+      - "monforts.*spindel.*mutter"
+      - "krantz.*k30"
+
+# =============================================================================
+# MACHINE TYPE KEYWORDS
+# =============================================================================
+
+machine_type_keywords:
+  stenter:
+    primary:
+      - stenter
+      - stentering
+      - tenter
+      - tentering
+      - stenterin
+    related:
+      - heat setting
+      - fabric stretching
+      - width adjustment
+      
+  ram:
+    primary:
+      - ram machine
+      - ram frame
+      - sanfor
+      - sanforizing
+      - compacting
+    related:
+      - shrinkage control
+      - pre-shrunk
+      
+  calander:
+    primary:
+      - calander
+      - calendering
+      - calender
+    related:
+      - fabric finishing
+      - surface treatment
+      
+  dyeing:
+    primary:
+      - dyeing machine
+      - dye house
+      - jet dyeing
+      - jigger
+      - beam dyeing
+    related:
+      - color
+      - dye
+      - pigment
+      
+  coating:
+    primary:
+      - coating machine
+      - laminating
+      - adhesive coating
+    related:
+      - waterproof
+      - membrane
+      - technical textile
+      
+  washing:
+    primary:
+      - washing machine
+      - industrial washing
+      - fabric washing
+    related:
+      - desizing
+      - scouring
+      - bleaching
+
+# =============================================================================
+# LANGUAGE VARIATIONS - Multi-lingual Keywords
+# =============================================================================
+
+language_variations:
+  # German
+  de:
+    stenter: ["stentermaschine", "spannrahmen", "spannmaschine"]
+    parts: ["ersatzteile", "verschleißteile", "teile"]
+    bearing: ["lager", "buchse", "gleitlager"]
+    
+  # Spanish
+  es:
+    stenter: ["rama", "rame", "secadora", "tensor"]
+    parts: ["repuestos", "piezas de recambio", "partes"]
+    bearing: ["cojinete", "buje", "rodamiento"]
+    
+  # Portuguese
+  pt:
+    stenter: ["rama", "secadora", "estiradeira"]
+    parts: ["peças de reposição", "sobressalentes"]
+    bearing: ["bucha", "rolamento", "mancal"]
+    
+  # French
+  fr:
+    stenter: ["rame", "séchoir", "élargisseuse"]
+    parts: ["pièces de rechange", "pièces détachées"]
+    bearing: ["palier", "coussinet", "roulement"]
+    
+  # Turkish
+  tr:
+    stenter: ["ram", "ram makinesi", "kurutma"]
+    parts: ["yedek parça", "aksam"]
+    bearing: ["yatak", "burç"]
+    
+  # Arabic (transliterated)
+  ar:
+    stenter: ["stenter", "ram", "تجفيف"]
+    parts: ["قطع غيار", "parts"]
+    
+# =============================================================================
+# SCORING CONFIGURATION
+# =============================================================================
+
+scoring:
+  # OEM + Component match (highest value)
+  oem_component_match: 30
+  
+  # Machine type keyword match
+  machine_type_high: 20
+  machine_type_medium: 10
+  machine_type_low: 5
+  
+  # Parts need indicators
+  parts_need_high: 25
+  parts_need_medium: 15
+  parts_need_low: 5
+  
+  # Customer usage indicators
+  usage_high: 20
+  usage_medium: 10
+  usage_low: 5
+  
+  # OEM detection (NEGATIVE - not customer)
+  oem_is_supplier: -40
+  
+  # Language bonus (target market language)
+  target_language_match: 5

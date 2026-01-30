@@ -1,0 +1,688 @@
+# =============================================================================
+# SOURCES REGISTRY - V10 Lead Intel Pipeline
+# Top 20 High-Value Sources for Textile Finishing Parts Customers
+# =============================================================================
+# Priority: 95+ = Critical, 85-94 = High, 70-84 = Medium, <70 = Low
+# Rate Limit: requests per second (respect anti-bot measures)
+# =============================================================================
+
+version: "1.0"
+last_updated: "2025-01-30"
+
+# =============================================================================
+# TIER 1: CRITICAL PRIORITY (95-92) - Global Directories
+# =============================================================================
+sources:
+  - id: bc_members_xlsx
+    name: "Better Cotton - Members List (XLSX)"
+    country: Global
+    region: global
+    source_type: directory
+    format: xlsx
+    homepage_url: "https://bettercotton.org/"
+    directory_url: "https://bettercotton.org/wp-content/uploads/2026/01/BETTER-COTTON-MEMBERS-LIST.xlsx"
+    collector: xlsx_downloader
+    priority: 95
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: high
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - country
+      - member_type
+      - website
+    tags:
+      - sustainability
+      - members
+      - mills
+      - global
+    notes: "Direct XLSX download, pandas.read_excel() ready"
+
+  - id: bc_suppliers_xlsx
+    name: "Better Cotton - Supplier List (XLSX)"
+    country: Global
+    region: global
+    source_type: directory
+    format: xlsx
+    homepage_url: "https://bettercotton.org/"
+    directory_url: "https://bettercotton.org/wp-content/uploads/2026/01/BETTER-COTTON-SUPPLIER-LIST.xlsx"
+    collector: xlsx_downloader
+    priority: 95
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: high
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - country
+      - supplier_category
+      - website
+    tags:
+      - sustainability
+      - suppliers
+      - mills
+      - global
+    notes: "Direct XLSX download, normalize supplier_type column"
+
+  - id: tunisia_textile_annuaire
+    name: "Tunisia Textile - Annuaire des entreprises"
+    country: Tunisia
+    region: north_africa
+    source_type: portal
+    format: html
+    homepage_url: "https://www.tunisiatextile.com.tn/"
+    directory_url: "https://www.tunisiatextile.com.tn/fr/pub/entreprise/41"
+    collector: html_directory_collector
+    priority: 92
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: high
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - address
+      - city
+      - phone
+      - email
+      - website
+      - sector
+    tags:
+      - directory
+      - tunisia
+      - finishing
+      - mills
+    pagination: true
+    notes: "URL path may contain page numbers, check /fr/pub/entreprise/41/<page>"
+
+# =============================================================================
+# TIER 2: HIGH PRIORITY (88-82) - Trade Fairs & EU Sources
+# =============================================================================
+
+  - id: techtextil_exhibitors
+    name: "Techtextil Frankfurt - Exhibitors & Products"
+    country: Germany
+    region: europe
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://techtextil.messefrankfurt.com/"
+    directory_url: "https://techtextil.messefrankfurt.com/frankfurt/en/exhibitor-search.html"
+    collector: playwright_probe
+    priority: 88
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: high
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - hall_stand
+      - product_groups
+      - address
+      - website
+      - contact
+    tags:
+      - fair
+      - exhibitors
+      - eu
+      - machinery
+      - services
+    notes: "JS-heavy, use Playwright. Filter by product category for finishing/parts"
+
+  - id: colombiatex_guide
+    name: "Colombiatex de las Américas - Guía de Expositores"
+    country: Colombia
+    region: south_america
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://colombiatex.com/"
+    directory_url: "https://colombiatex.com/guia-de-expositores/"
+    collector: playwright_probe
+    priority: 85
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: high
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - country
+      - sector
+      - booth
+    tags:
+      - fair
+      - exhibitors
+      - colombia
+      - latam
+    notes: "Filter JS with 'Ver más' lazy-load handling"
+
+  - id: texprocess_exhibitors
+    name: "Texprocess Frankfurt - Exhibitor Search"
+    country: Germany
+    region: europe
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://texprocess.messefrankfurt.com/"
+    directory_url: "https://texprocess.messefrankfurt.com/frankfurt/en/exhibitor-search.html"
+    collector: playwright_probe
+    priority: 85
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: high
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - hall_stand
+      - product_groups
+      - address
+      - website
+    tags:
+      - fair
+      - exhibitors
+      - eu
+      - finishing
+      - machinery
+    notes: "Similar to Techtextil, same Messe Frankfurt platform"
+
+  - id: febratex_exhibitors
+    name: "Febratex (Blumenau) - Lista de Expositores 2026"
+    country: Brazil
+    region: south_america
+    source_type: fair_exhibitors
+    format: html+pdf
+    homepage_url: "https://febratex.com.br/"
+    directory_url: "https://febratex.com.br/inscricoes/"
+    collector: html_directory_collector
+    priority: 82
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: high
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - segment
+      - category
+    tags:
+      - fair
+      - exhibitors
+      - brazil
+      - pdf_catalog
+    notes: "Check for 'Lista de Expositores 2026' section and 'Pré-Catálogo' PDF"
+
+# =============================================================================
+# TIER 3: MEDIUM PRIORITY (80-72) - Regional Associations
+# =============================================================================
+
+  - id: fita_empresas
+    name: "FITA Argentina - Empresas Dizini"
+    country: Argentina
+    region: south_america
+    source_type: association
+    format: html
+    homepage_url: "https://www.fita.com.ar/"
+    directory_url: "https://www.fita.com.ar/empresas/"
+    collector: html_directory_collector
+    priority: 80
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: high
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - city
+      - address
+      - phone
+      - email
+      - website
+    tags:
+      - association
+      - directory
+      - argentina
+      - textile
+    notes: "Alphabetic filter may be available, crawl by letter"
+
+  - id: gots_certified_entities
+    name: "GOTS - Certified Entities Public Database"
+    country: Global
+    region: global
+    source_type: directory
+    format: html
+    homepage_url: "https://global-standard.org/"
+    directory_url: "https://global-standard.org/find-certified-suppliers-shops-and-inputs/certified-entities"
+    collector: html_directory_collector
+    priority: 78
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - scope
+      - address
+      - country
+      - certificate_info
+    tags:
+      - certification
+      - gots
+      - mills
+      - global
+    notes: "Filter by scope containing 'dyeing/finishing/printing' for priority leads"
+
+  - id: cairo_fashion_tex_pdf
+    name: "Cairo Fashion & Tex - Exhibitors Index PDF"
+    country: Egypt
+    region: north_africa
+    source_type: pdf_catalog
+    format: pdf
+    homepage_url: "https://cairofashiontex.com/"
+    directory_url: "https://cairofashiontex.com/wp-content/uploads/2024/11/Exhibitors-Index.pdf"
+    collector: pdf_catalog_collector
+    priority: 75
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - category
+      - stand
+    tags:
+      - pdf_catalog
+      - exhibitors
+      - egypt
+    notes: "PDF path may change by edition, check for 404"
+
+  - id: sinditextil_rj_associados
+    name: "Sinditêxtil-RJ - Associados"
+    country: Brazil
+    region: south_america
+    source_type: association
+    format: html
+    homepage_url: "https://www.sinditextilrj.com.br/"
+    directory_url: "https://www.sinditextilrj.com.br/associados/"
+    collector: html_directory_collector
+    priority: 72
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: medium
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - city
+      - state
+      - website
+      - contact
+    tags:
+      - association
+      - members
+      - brazil
+    notes: "Single page crawl, extract member cards"
+
+# =============================================================================
+# TIER 4: STANDARD PRIORITY (70-55) - Additional Sources
+# =============================================================================
+
+  - id: tunisie_industrie_dbi
+    name: "Tunisie Industrie - DBI Database"
+    country: Tunisia
+    region: north_africa
+    source_type: government_registry
+    format: html
+    homepage_url: "https://www.tunisieindustrie.nat.tn/"
+    directory_url: "https://www.tunisieindustrie.nat.tn/fr/dbi.asp"
+    collector: playwright_probe
+    priority: 70
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - activity_code
+      - address
+      - phone
+      - fax
+      - email
+      - website
+    tags:
+      - government
+      - registry
+      - tunisia
+      - industrial
+    notes: "Form-based search, filter by textile/finishing sector codes"
+
+  - id: sinditextil_pr_associados
+    name: "Sinditêxtil-PR - Associados"
+    country: Brazil
+    region: south_america
+    source_type: association
+    format: html
+    homepage_url: "https://sinditextilpr.org.br/"
+    directory_url: "https://sinditextilpr.org.br/associados/"
+    collector: html_directory_collector
+    priority: 70
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: medium
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - city
+      - website
+      - contact
+    tags:
+      - association
+      - members
+      - brazil
+    notes: "Single page, extract domain from website field"
+
+  - id: intermoda_direxpo
+    name: "Intermoda Mexico - Directorio de Expositores"
+    country: Mexico
+    region: north_america
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://intermoda.com.mx/"
+    directory_url: "https://intermoda.direxpo.com/2025/directorio"
+    collector: playwright_probe
+    priority: 70
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - stand
+      - contact
+      - category
+    tags:
+      - fair
+      - exhibitors
+      - mexico
+    notes: "Edition year in URL path, update for current year"
+
+  - id: alger_textile_expo
+    name: "Alger Textile Expo - Exhibitors List"
+    country: Algeria
+    region: north_africa
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://www.algertextileexpo.com/"
+    directory_url: "https://www.algertextileexpo.com/exhibitors/"
+    collector: html_directory_collector
+    priority: 70
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - country
+      - sector
+      - booth
+    tags:
+      - fair
+      - exhibitors
+      - algeria
+      - north_africa
+    notes: "Validate URL on first run"
+
+  - id: europages_textile_finishing
+    name: "Europages - Textile Finishing Companies"
+    country: EU
+    region: europe
+    source_type: directory
+    format: html
+    homepage_url: "https://www.europages.com/"
+    directory_url: "https://www.europages.com/companies/textile%20finishing.html"
+    collector: html_directory_collector
+    priority: 68
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: medium
+    access: open
+    extractability: easy
+    fields:
+      - company_name
+      - country
+      - city
+      - website
+      - phone
+    tags:
+      - directory
+      - textile_finishing
+      - eu
+    pagination: true
+    notes: "Paginated results, use next/prev parameters"
+
+  - id: destination_africa
+    name: "Destination Africa Egypt - Exhibitors"
+    country: Egypt
+    region: north_africa
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://destinationafrica-egypt.com/"
+    directory_url: "https://destinationafrica-egypt.com/exhibitors"
+    collector: html_directory_collector
+    priority: 65
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - category
+      - country
+      - contact
+    tags:
+      - fair
+      - exhibitors
+      - egypt
+      - north_africa
+    notes: "Check for 'load more' button pattern"
+
+  - id: itma_exhibitors
+    name: "ITMA - Textile Machinery Exhibitors"
+    country: Global
+    region: global
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://www.itma.com/"
+    directory_url: "https://www.itma.com/exhibitors"
+    collector: playwright_probe
+    priority: 65
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - booth
+      - products
+      - country
+      - website
+    tags:
+      - fair
+      - machinery
+      - oem
+      - service
+    notes: "OEM/service/parts ecosystem - NOT direct customers, but leads to their customers"
+    secondary_bucket: true
+
+  - id: emitex_expobook
+    name: "Emitex/Simatex/Confemaq - Expobook Expositores"
+    country: Argentina
+    region: south_america
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://emitex.com.ar/"
+    directory_url: "https://www.expobook.com.ar/ferias/emitex-simatex-confemaq/expositores/"
+    collector: html_directory_collector
+    priority: 60
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: low
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - category
+      - booth
+      - website
+    tags:
+      - fair
+      - exhibitors
+      - argentina
+    notes: "3rd-party directory, check robots/terms. Cross-reference with official site"
+
+  - id: wlw_textile_finishing
+    name: "Wer liefert was - Textile Finishing"
+    country: Germany
+    region: europe
+    source_type: directory
+    format: html
+    homepage_url: "https://www.wlw.de/"
+    directory_url: "https://www.wlw.de/de/suche?q=textilveredelung"
+    collector: playwright_probe
+    priority: 60
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: low
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - location
+      - website
+      - phone
+    tags:
+      - directory
+      - germany
+      - textile_finishing
+    notes: "Expand with synonyms: textilveredelung, ausrüstung, färberei, appretur"
+    search_terms:
+      - textilveredelung
+      - textilausrüstung
+      - färberei
+      - appretur
+
+# =============================================================================
+# META SOURCES - For Source Discovery (Not Direct Leads)
+# =============================================================================
+
+  - id: euratex_members
+    name: "EURATEX - National Federations"
+    country: EU
+    region: europe
+    source_type: meta
+    format: html
+    homepage_url: "https://euratex.eu/"
+    directory_url: "https://euratex.eu/euratex-members/"
+    collector: html_directory_collector
+    priority: 40
+    rate_limit: 2
+    anti_bot_risk: low
+    expected_leads: low
+    access: open
+    extractability: easy
+    fields:
+      - federation_name
+      - country
+      - link
+    tags:
+      - meta
+      - associations
+      - eu
+    notes: "2nd hop source - links to national textile associations"
+    is_seed_source: true
+
+  - id: itmf_members
+    name: "ITMF - Member Associations List"
+    country: Global
+    region: global
+    source_type: meta
+    format: html
+    homepage_url: "https://www.itmf.org/"
+    directory_url: "https://www.itmf.org/association/members/"
+    collector: html_directory_collector
+    priority: 35
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: low
+    access: open
+    extractability: medium
+    fields:
+      - association_name
+      - country
+      - link
+    tags:
+      - meta
+      - associations
+      - global
+    notes: "Global textile associations - use for source discovery, not direct leads"
+    is_seed_source: true
+
+# =============================================================================
+# SEARCH QUERIES - For Brave/SearXNG Web Search
+# =============================================================================
+
+search_queries:
+  brazil:
+    - "Febratex lista de expositores 2026"
+    - "feira têxtil expositores lista site:febratex.com.br"
+    - "Sinditêxtil associados lista empresas"
+    - "ABIT associados têxtil Brasil"
+
+  argentina:
+    - "FITA empresas directorio"
+    - "Emitex expositores listado"
+    - "Simatex Confemaq expositores"
+
+  colombia:
+    - "Colombiatex guía de expositores"
+    - "Createx expositores directorio"
+
+  mexico:
+    - "CANAINTEX miembros directorio"
+    - "Intermoda expositores México"
+
+  tunisia:
+    - "tunisiatextile annuaire entreprise liste"
+    - "tunisie industrie dbi textile entreprises"
+
+  egypt:
+    - "Cairo Fashion & Tex exhibitors index PDF"
+    - "Destination Africa exhibitors list"
+
+  germany:
+    - "Techtextil exhibitor search"
+    - "Texprocess exhibitor search"
+    - "Textilveredelung wlw suche"
+
+  global:
+    - "Better Cotton members list xlsx"
+    - "Better Cotton supplier list xlsx"
+    - "GOTS certified entities database"
+    - "OEKO-TEX label check directory"

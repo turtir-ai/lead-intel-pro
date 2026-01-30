@@ -46,11 +46,113 @@ export:
   require_reachability_level: "website"
   
   # GPT Fix #6: Region quotas to prevent over-representation
+  # V10 Update: Added north_africa and middle_east as separate regions
   region_quotas:
-    south_america: 300  # Top focus region
-    north_america: 100
-    europe: 100
-    asia: 150
-    africa: 100
+    south_america: 300    # Top focus region (Brazil, Argentina, Colombia, etc.)
+    north_africa: 150     # Tunisia, Egypt, Algeria, Morocco - growing market
+    north_america: 100    # Mexico, USA, Canada
+    europe: 100           # EU markets
+    middle_east: 75       # Turkey, Pakistan, India, Bangladesh
+    asia: 100             # China, Vietnam, Indonesia, etc.
+    other: 50             # Catch-all for unlisted regions
+
+# =============================================================================
+# V10 HEURISTIC SCORING CONFIGURATION
+# =============================================================================
+
+heuristic_scoring:
+  # Minimum score threshold to be considered a lead
+  min_lead_score: 50
+  
+  # Confidence thresholds
+  confidence_thresholds:
+    high: 100
+    medium: 70
+    low: 50
+    
+  # Keyword weights
+  weights:
+    positive_keyword: 10
+    negative_keyword: -15
+    hs_code_match: 25
+    oem_component_match: 30
+    oem_is_supplier: -40
+    machine_type: 15
+    customer_indicator_high: 20
+    customer_indicator_medium: 10
+    parts_need_high: 25
+    parts_need_medium: 15
+    certification: 15
+    proximity_bonus: 15
+    target_region: 10
+    
+  # Maximum points from single category (prevent keyword stuffing)
+  max_positive_keywords: 100
+  
+  # Product match bonus (OEM + specific component)
+  product_match_bonus: 30
+
+# =============================================================================
+# SOURCE PRIORITY FOR DEDUPE (V10)
+# =============================================================================
+
+source_priority:
+  # Higher value = preferred source when deduplicating
+  certification: 100    # GOTS, OEKO-TEX, Better Cotton
+  association: 90       # FITA, ABIT, industry associations
+  directory: 85         # Tunisia Textile, Europages
+  fair: 80              # Techtextil, Colombiatex, Febratex
+  government: 75        # Government registries
+  search: 50            # Web search results
+
+# =============================================================================
+# TARGET REGIONS FOR SCORING BONUS (V10)
+# =============================================================================
+
+target_regions:
+  south_america:
+    countries:
+      - brazil
+      - argentina
+      - colombia
+      - chile
+      - ecuador
+      - peru
+      - mexico
+      - venezuela
+      - uruguay
+      - paraguay
+    bonus: 10
+    priority: 1
+    
+  north_africa:
+    countries:
+      - tunisia
+      - egypt
+      - algeria
+      - morocco
+    bonus: 10
+    priority: 2
+    
+  middle_east:
+    countries:
+      - turkey
+      - pakistan
+      - india
+      - bangladesh
+      - iran
+    bonus: 5
+    priority: 3
+    
+  europe:
+    countries:
+      - germany
+      - italy
+      - spain
+      - portugal
+      - poland
+      - romania
+    bonus: 0  # No bonus, but still valid market
+    priority: 4
 
 trade_priority_path: "data/processed/country_priority_comtrade.csv"
