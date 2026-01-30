@@ -218,8 +218,13 @@ class EmailGuesser:
         if not domain or domain in self.free_email_domains:
             return []
             
-        # Determine language
-        country_lower = (country or "").lower().strip()
+        # Determine language - handle NaN/float values
+        if country is None or (isinstance(country, float)):
+            country_lower = ""
+        else:
+            country_lower = str(country).lower().strip()
+            if country_lower == 'nan':
+                country_lower = ""
         language = self.country_language.get(country_lower, "en")
         
         # Get patterns for this language
