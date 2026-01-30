@@ -188,6 +188,17 @@ class LeadIntelPipeline:
         except Exception as e:
             logger.error(f"Regional collector failed: {e}")
         
+        # 0.55. SA DIRECTORY COLLECTOR - AITE Ecuador + Febratex Brazil (ChatGPT Audit Fix)
+        try:
+            logger.info("🌎 SA DIRECTORY COLLECTOR - Ecuador AITE + Brazil Febratex...")
+            from src.collectors.sa_directory_collector import SouthAmericaDirectoryCollector
+            sa_directory = SouthAmericaDirectoryCollector()
+            sa_dir_leads = sa_directory.harvest()
+            logger.info(f"    SA Directories: {len(sa_dir_leads)} leads (with website: {len([l for l in sa_dir_leads if l.get('website')])})")
+            all_leads.extend(sa_dir_leads)
+        except Exception as e:
+            logger.error(f"SA Directory collector failed: {e}")
+        
         # 0.6. AUTO-DISCOVER - Yeni fuar ve kaynakları keşfet
         try:
             logger.info("🔍 Auto-Discover: Finding new fairs and directories...")
@@ -334,9 +345,10 @@ class LeadIntelPipeline:
     # =========================================================================
     
     def enrich(self):
-        """Enrich leads with additional data."""
-        self.log_stage("ENRICH - Adding Contact Details")
+        """Enrich leads with additional data including website discovery and contact extraction."""
+        self.log_stage("ENRICH - Website Discovery + Contact Extraction")
         
+        import yaml
         from src.processors.enricher import Enricher
         
         raw_path = self.project_root / "data" / "staging" / "leads_raw.csv"
@@ -346,10 +358,42 @@ class LeadIntelPipeline:
             logger.error("No raw leads found - run harvest first")
             return 0
         
+        # Load configuration files for enrichment
+        with open(self.project_root / "config" / "settings.yaml") as f:
+            settings = yaml.safe_load(f)
+        with open(self.project_root / "config" / "targets.yaml") as f:
+            targets = yaml.safe_load(f)
+        policies_path = self.project_root / "config" / "policies.yaml"
+        policies = {}
+        if policies_path.exists():
+            with open(policies_path) as f:
+                policies = yaml.safe_load(f) or {}
+        
+        # Inject Brave API key from environment
+        if not settings.get("api_keys"):
+            settings["api_keys"] = {}
+        settings["api_keys"]["brave"] = os.environ.get("BRAVE_API_KEY", "")
+        
+        # Log enrichment configuration status
+        ws_enabled = settings.get("enrichment", {}).get("website_discovery", {}).get("enabled", False)
+        ct_enabled = settings.get("enrichment", {}).get("contact", {}).get("enabled", False)
+        brave_key = settings["api_keys"].get("brave", "")
+        
+        logger.info(f"  Website Discovery: {'✓ ENABLED' if ws_enabled else '✗ DISABLED'}")
+        logger.info(f"  Contact Enricher: {'✓ ENABLED' if ct_enabled else '✗ DISABLED'}")
+        logger.info(f"  Brave API Key: {'✓ SET (' + brave_key[:15] + '...)' if brave_key else '✗ NOT SET'}")
+        
+        if ws_enabled and not brave_key:
+            logger.warning("  ⚠️ Website Discovery enabled but Brave API key not set!")
+        
         df = pd.read_csv(raw_path)
         logger.info(f"Enriching {len(df)} leads...")
         
-        enricher = Enricher()
+        enricher = Enricher(
+            targets_config=targets,
+            settings=settings,
+            policies=policies
+        )
         
         # Convert DataFrame to list of dicts
         leads_list = df.to_dict('records')
@@ -421,9 +465,9 @@ class LeadIntelPipeline:
     
     def apply_quality_gate(self):
         """Apply entity quality filtering to reject non-companies."""
-        self.log_stage("ENTITY QUALITY GATE - Filtering Non-Companies")
+        self.log_stage("ENTITY QUALITY GATE V2 - Filtering Non-Companies + Country Normalization")
         
-        from src.processors.entity_quality_gate import EntityQualityGate
+        from src.processors.entity_quality_gate_v2 import EntityQualityGateV2
         
         enriched_path = self.project_root / "data" / "staging" / "leads_enriched.csv"
         
@@ -437,20 +481,57 @@ class LeadIntelPipeline:
         df = pd.read_csv(enriched_path, on_bad_lines='skip')
         logger.info(f"Quality checking {len(df)} leads...")
         
-        gate = EntityQualityGate()
+        gate = EntityQualityGateV2()
         leads_list = df.to_dict('records')
-        filtered = gate.filter_leads(leads_list)
+        
+        # Filter leads with V2 quality gate
+        filtered = []
+        rejected_count = 0
+        rejection_reasons = {}
+        grade_counts = {'A': 0, 'B': 0, 'C': 0}
+        parts_supplier_count = 0
+        
+        for lead in leads_list:
+            # Normalize country first (Turkey/Türkiye → Turkey)
+            if lead.get('country'):
+                lead['country'] = gate.normalize_country(lead['country'])
+            
+            grade, reason = gate.grade_entity(lead)
+            lead['entity_quality'] = grade
+            lead['quality_reason'] = reason
+            
+            # Check if it's a parts supplier (flag but don't reject)
+            if gate._is_parts_supplier(lead):
+                lead['is_parts_supplier'] = True
+                parts_supplier_count += 1
+            else:
+                lead['is_parts_supplier'] = False
+            
+            if grade != 'REJECT':
+                filtered.append(lead)
+                if grade in grade_counts:
+                    grade_counts[grade] += 1
+            else:
+                rejected_count += 1
+                # Track rejection reasons
+                reason_key = reason.split(':')[0] if ':' in reason else reason[:30]
+                rejection_reasons[reason_key] = rejection_reasons.get(reason_key, 0) + 1
         
         # Save filtered leads back
         filtered_df = pd.DataFrame(filtered)
         filtered_df.to_csv(enriched_path, index=False)
         
-        stats = gate.get_stats()
-        logger.info(f"\nQuality Gate Results:")
-        logger.info(f"  Rejected: {stats['total_rejected']}")
-        for grade, count in stats['grade_distribution'].items():
-            pct = (count / len(df) * 100) if len(df) > 0 else 0
+        logger.info(f"\nQuality Gate V2 Results:")
+        logger.info(f"  Total: {len(leads_list)}, Passed: {len(filtered)}, Rejected: {rejected_count}")
+        for grade, count in grade_counts.items():
+            pct = (count / len(filtered) * 100) if len(filtered) > 0 else 0
             logger.info(f"  Grade {grade}: {count} ({pct:.1f}%)")
+        
+        logger.info(f"\n  ⚠️ Parts suppliers flagged: {parts_supplier_count} (not rejected, but flagged)")
+        
+        logger.info(f"\nTop Rejection Reasons:")
+        for reason, count in sorted(rejection_reasons.items(), key=lambda x: -x[1])[:10]:
+            logger.info(f"  - {reason}: {count}")
         
         return len(filtered)
     
@@ -560,6 +641,90 @@ class LeadIntelPipeline:
         return len(qualified)
     
     # =========================================================================
+    # STAGE 5.6: CONTACT VERIFICATION (GPT Fix #4)
+    # =========================================================================
+    
+    def verify_contacts(self):
+        """Verify email/phone contacts for sales readiness."""
+        self.log_stage("CONTACT VERIFICATION - Validating Sales Readiness")
+        
+        from src.processors.verifier import ContactVerifier
+        
+        master_path = self.project_root / "data" / "processed" / "leads_master.csv"
+        
+        if not master_path.exists():
+            logger.error("No master leads found")
+            return 0
+        
+        df = pd.read_csv(master_path, on_bad_lines='skip')
+        logger.info(f"Verifying contacts for {len(df)} leads...")
+        
+        verifier = ContactVerifier()
+        leads_list = df.to_dict('records')
+        
+        verified_leads = [verifier.verify_lead(lead) for lead in leads_list]
+        
+        # Count by confidence level
+        high_conf = sum(1 for l in verified_leads if l.get('contact_confidence') == 'high')
+        med_conf = sum(1 for l in verified_leads if l.get('contact_confidence') == 'medium')
+        low_conf = sum(1 for l in verified_leads if l.get('contact_confidence') == 'low')
+        
+        logger.info(f"\nContact Verification Results:")
+        logger.info(f"  High confidence: {high_conf} ({100*high_conf/max(1,len(verified_leads)):.1f}%)")
+        logger.info(f"  Medium confidence: {med_conf} ({100*med_conf/max(1,len(verified_leads)):.1f}%)")
+        logger.info(f"  Low confidence: {low_conf} ({100*low_conf/max(1,len(verified_leads)):.1f}%)")
+        
+        # Save verified leads
+        verified_df = pd.DataFrame(verified_leads)
+        verified_df.to_csv(master_path, index=False)
+        
+        return high_conf + med_conf
+    
+    # =========================================================================
+    # STAGE 5.7: ROLE CLASSIFICATION (GPT Fix #5)
+    # =========================================================================
+    
+    def classify_roles(self):
+        """Classify leads as CUSTOMER or INTERMEDIARY."""
+        self.log_stage("ROLE CLASSIFICATION - Customer vs Intermediary")
+        
+        from src.processors.role_classifier import RoleClassifier
+        
+        master_path = self.project_root / "data" / "processed" / "leads_master.csv"
+        
+        if not master_path.exists():
+            logger.error("No master leads found")
+            return 0
+        
+        df = pd.read_csv(master_path, on_bad_lines='skip')
+        logger.info(f"Classifying roles for {len(df)} leads...")
+        
+        classifier = RoleClassifier()
+        leads_list = df.to_dict('records')
+        
+        customers, intermediaries, unknown = classifier.separate_by_role(leads_list)
+        
+        logger.info(f"\nRole Classification Results:")
+        logger.info(f"  CUSTOMER: {len(customers)} ({100*len(customers)/max(1,len(leads_list)):.1f}%)")
+        logger.info(f"  INTERMEDIARY: {len(intermediaries)} ({100*len(intermediaries)/max(1,len(leads_list)):.1f}%)")
+        logger.info(f"  UNKNOWN: {len(unknown)} ({100*len(unknown)/max(1,len(leads_list)):.1f}%)")
+        
+        # Save all leads with role classification
+        all_classified = customers + intermediaries + unknown
+        classified_df = pd.DataFrame(all_classified)
+        classified_df.to_csv(master_path, index=False)
+        
+        # Save intermediaries separately (for reference, not for sales)
+        if intermediaries:
+            output_dir = self.project_root / "outputs" / "crm"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            intermediary_df = pd.DataFrame(intermediaries)
+            intermediary_df.to_csv(output_dir / "intermediaries.csv", index=False)
+            logger.info(f"  Saved {len(intermediaries)} intermediaries to intermediaries.csv")
+        
+        return len(customers)
+    
+    # =========================================================================
     # STAGE 6: EXPORT
     # =========================================================================
     
@@ -652,10 +817,16 @@ class LeadIntelPipeline:
             # Stage 5: Score
             self.score()
             
-            # Stage 6: Customer Qualification (NEW)
+            # Stage 5.5: Customer Qualification
             self.qualify_customers()
             
-            # Stage 7: Export
+            # Stage 5.6: Contact Verification (GPT Fix #4)
+            self.verify_contacts()
+            
+            # Stage 5.7: Role Classification (GPT Fix #5)
+            self.classify_roles()
+            
+            # Stage 6: Export
             self.export()
             
         except Exception as e:
@@ -704,10 +875,16 @@ class LeadIntelPipeline:
             if "score" in df.columns:
                 logger.info("")
                 logger.info("Top 10 Leads:")
-                top10 = df.nlargest(10, "score")[["company", "country", "score", "email"]]
+                # Use emails (plural) if available, otherwise try email
+                email_col = "emails" if "emails" in df.columns else "email" if "email" in df.columns else None
+                display_cols = ["company", "country", "score"]
+                if email_col:
+                    display_cols.append(email_col)
+                top10 = df.nlargest(10, "score")[display_cols]
                 for _, row in top10.iterrows():
-                    email = row.get("email", "")[:30] if pd.notna(row.get("email")) else ""
-                    logger.info(f"  [{row['score']:.0f}] {row['company'][:35]:<35} | {row['country']:<10} | {email}")
+                    email_val = row.get(email_col, "") if email_col else ""
+                    email_str = str(email_val)[:30] if pd.notna(email_val) and email_val else ""
+                    logger.info(f"  [{row['score']:.0f}] {row['company'][:35]:<35} | {row['country']:<10} | {email_str}")
         
         logger.info("")
         logger.info(f"Output files: {self.project_root / 'outputs' / 'crm'}/")

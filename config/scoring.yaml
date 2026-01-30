@@ -44,5 +44,13 @@ export:
   lookalike_top_countries: 5
   require_reachability: true
   require_reachability_level: "website"
+  
+  # GPT Fix #6: Region quotas to prevent over-representation
+  region_quotas:
+    south_america: 300  # Top focus region
+    north_america: 100
+    europe: 100
+    asia: 150
+    africa: 100
 
 trade_priority_path: "data/processed/country_priority_comtrade.csv"

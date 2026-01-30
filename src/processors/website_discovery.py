@@ -11,6 +11,23 @@ logger = get_logger(__name__)
 
 
 class WebsiteDiscovery:
+    # Reference/encyclopedia domains to reject - NOT company websites
+    REFERENCE_DOMAINS = {
+        'wikipedia.org', 'britannica.com', 'encyclopedia.com', 'wikidata.org',
+        'merriam-webster.com', 'dictionary.com', 'thesaurus.com', 'oxfordreference.com',
+        'zoominfo.com', 'bloomberg.com', 'reuters.com', 'forbes.com',
+        'sciencedirect.com', 'researchgate.net', 'academia.edu', 'springer.com',
+        'textileworld.com', 'fibre2fashion.com', 'just-style.com', 'apparelresources.com',
+        'texdata.com', 'fashionunited.com', 'voguebusiness.com',
+        'gaston.edu', 'coursera.org', 'udemy.com', 'edx.org',  # Education
+        'globaltrace.org', 'global-trace-base.org',  # Certification databases
+        'emis.com', 'dnb.com', 'hoovers.com', 'kompass.com',  # Business directories
+        'europages.co.uk', 'europages.com',  # Listing sites
+        'armut.com', 'modaknits.com', 'productmkr.com',  # Aggregator sites
+        'istanbulrealestate.net', 'tekstilsayfasi.blogspot.com',  # Blog/news
+        'hometextilestoday.com', 'textileworld.com',  # Trade publications
+    }
+    
     def __init__(
         self,
         api_key,
@@ -119,12 +136,35 @@ class WebsiteDiscovery:
         company_tokens = [t for t in normalized_company.split() if len(t) > 2]
         if not company_tokens:
             return score
-
+        
+        # REJECT reference/encyclopedia domains completely
+        for ref_domain in self.REFERENCE_DOMAINS:
+            if ref_domain in domain:
+                return -10  # Strong negative score
+        
+        # REJECT if domain is a fair/directory listing page (not company website)
+        listing_indicators = ['exhibitor', 'ausstellerverzeichnis', 'inscricoes', 'socios']
+        for indicator in listing_indicators:
+            if indicator in url.lower():
+                return -5  # This is a listing page, not company site
+        
+        # Bonus: company name directly in domain (+5)
+        domain_clean = domain.replace('www.', '').split('.')[0]
         for token in company_tokens:
-            if token in domain:
-                score += 2
+            if token in domain_clean:
+                score += 5  # Strong match - company name in domain
+        
+        # Check title/desc for company name matches
+        for token in company_tokens:
             if token in title.lower():
                 score += 1
             if token in desc.lower():
                 score += 1
+        
+        # Bonus: looks like official website (short domain, .com/.br/.tr etc)
+        if len(domain_clean) <= 15 and '.' in domain:
+            tld = domain.split('.')[-1]
+            if tld in {'com', 'br', 'tr', 'in', 'pk', 'bd', 'eg', 'pe', 'co', 'ar', 'mx', 'ec'}:
+                score += 1
+        
         return score

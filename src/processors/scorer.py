@@ -130,16 +130,20 @@ class Scorer:
         # NEW: Competitor customer bonus - known to buy from Interspare/XTY
         competitor_bonus = self._competitor_customer_score(lead, full_text)
 
-        score = 0.0
-        score += fit_score * self.weights.get("fit_weight", 0.4)
-        score += capacity_score * self.weights.get("capacity_weight", 0.2)
-        score += import_score * self.weights.get("import_priority_weight", 0.2)
-        score += reachability_score * self.weights.get("reachability_weight", 0.2)
+        # GPT Audit Fix: Calculate base score (0-100 scale)
+        # Base components are already 0-100 (fit=40, capacity=20, import=20, reach=20)
+        base_score = 0.0
+        base_score += fit_score * self.weights.get("fit_weight", 0.4)
+        base_score += capacity_score * self.weights.get("capacity_weight", 0.2)
+        base_score += import_score * self.weights.get("import_priority_weight", 0.2)
+        base_score += reachability_score * self.weights.get("reachability_weight", 0.2)
         
-        # Add bonuses (can exceed 100)
-        score += product_bonus
-        score += oem_bonus
-        score += competitor_bonus
+        # Normalize to 0-100 scale (base components max = 40*0.4 + 20*0.2*3 = 28)
+        # Scale up to use full 0-100 range
+        normalized_score = min(100, base_score * 2.5)  # 28 * 2.5 = 70 base, bonuses push higher
+        
+        # Add bonuses (can exceed 100 for hot leads)
+        final_score = normalized_score + product_bonus + oem_bonus + competitor_bonus
 
         lead["fit_score"] = round(fit_score, 2)
         lead["capacity_score"] = round(capacity_score, 2)
@@ -148,7 +152,7 @@ class Scorer:
         lead["product_fit_bonus"] = round(product_bonus, 2)
         lead["oem_bonus"] = round(oem_bonus, 2)
         lead["competitor_bonus"] = round(competitor_bonus, 2)
-        lead["score"] = round(min(150, score), 2)  # Allow up to 150 for hot leads
+        lead["score"] = round(min(150, final_score), 2)  # Allow up to 150 for hot leads
         return lead
 
     def _product_fit_score(self, text):

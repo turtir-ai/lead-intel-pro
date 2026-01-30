@@ -31,6 +31,11 @@ enrichment:
       - "amith"
       - "abit"
       - "directory"
+      - "known_manufacturer"
+      - "oem_customer"
+      - "brave_search"
+      - "precision_search"
+      - "fair"
     max_results: 5
     min_score: 2
     verify_website: true
@@ -64,6 +69,11 @@ enrichment:
       - "abit"
       - "egypt_tec"
       - "directory"
+      - "known_manufacturer"
+      - "oem_customer"
+      - "brave_search"
+      - "precision_search"
+      - "fair"
     max_pages: 6
     timeout: 20
     max_retries: 2

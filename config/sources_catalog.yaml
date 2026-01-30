@@ -1,0 +1,203 @@
+# GPT Fix #7: Source Registry for Lead Intelligence Pipeline
+# Official association directories, certification directories, and trade fair exhibitor lists
+# 
+# Source Priority:
+# - certification_directory: 100 (OEKO-TEX, GOTS, Better Cotton, WRAP)
+# - association_directory: 90 (FITA, AITE, CANAINTEX)
+# - fair_exhibitors: 70 (FEBRATEX, Colombiatex, ITMA)
+
+south_america:
+  argentina:
+    associations:
+      - name: "FITA - Directorio de Empresas Asociadas"
+        url: "https://www.fita.com.ar/empresas/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "address", "phone", "email", "website"]
+        priority: 90
+        enabled: true
+        notes: "Direct phone/email/website - high value seed source"
+
+  brazil:
+    fairs:
+      - name: "FEBRATEX - Lista de Expositores"
+        url: "https://febratex.com.br/"
+        type: "fair_exhibitors"
+        parse: "html_list"
+        fields: ["company", "website", "phone", "segment"]
+        priority: 70
+        enabled: true
+        strategy: "Get exhibitor list -> extract websites -> crawl official sites for contacts"
+      
+      - name: "Texbrasil Companies"
+        url: "https://texbrasil.com.br/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "website", "category"]
+        priority: 85
+        enabled: true
+        collector: "texbrasil_companies.py"
+
+  colombia:
+    fairs:
+      - name: "Colombiatex - Guía de Expositores 2026"
+        url: "https://colombiatex.com/en/guia-de-expositores-2026/"
+        type: "fair_exhibitors"
+        parse: "api_reverse_engineer"
+        fields: ["company", "country", "category", "profile_url", "website"]
+        priority: 70
+        enabled: true
+        notes: "Check network tab for JSON endpoint"
+      
+      - name: "Colombiatex - Expositores"
+        url: "https://colombiatex.com/en/expositores/"
+        type: "fair_exhibitors"
+        parse: "api_reverse_engineer"
+        priority: 70
+        enabled: true
+
+  ecuador:
+    associations:
+      - name: "AITE - Asociación de Industrias Textiles del Ecuador"
+        url: "https://aite.com.ec/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "profile", "contact"]
+        priority: 90
+        enabled: true
+        collector: "ecuador_textile_export_council.py"
+        notes: "Check for 'Directorio de Socios' PDF in social posts"
+
+  peru:
+    associations:
+      - name: "SNI Peru - Textile Committee"
+        url: "https://sni.org.pe/comite-textil/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "contact"]
+        priority: 85
+        enabled: false
+        notes: "Needs collector implementation"
+
+north_america:
+  mexico:
+    associations:
+      - name: "CANAINTEX - Members"
+        url: "https://www.canaintex.com/members/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "category"]
+        priority: 90
+        enabled: true
+        notes: "Mexican textile industry chamber"
+      
+      - name: "CANAINTEX - Members and Affiliates"
+        url: "https://www.canaintex.com/members-and-affiliates/"
+        type: "association_directory"
+        parse: "html_list"
+        fields: ["company", "category", "type"]
+        priority: 90
+        enabled: true
+
+global_certifications:
+  oekotex:
+    - name: "OEKO-TEX Buying Guide"
+      url: "https://www.oeko-tex.com/en/buying-guide"
+      type: "certification_directory"
+      parse: "api_search"
+      fields: ["company", "country", "certificate_type", "products"]
+      priority: 100
+      enabled: true
+      collector: "builtin:oekotex"
+
+  gots:
+    - name: "GOTS Public Database"
+      url: "https://global-standard.org/public-database"
+      type: "certification_directory"
+      parse: "api_search"
+      fields: ["company", "country", "scope", "products"]
+      priority: 100
+      enabled: true
+      collector: "builtin:gots"
+
+  better_cotton:
+    - name: "Better Cotton - Member Directory"
+      url: "https://bettercotton.org/who-we-are/members/"
+      type: "certification_directory"
+      parse: "html_list"
+      fields: ["member_name", "member_type", "country"]
+      priority: 90
+      enabled: true
+      collector: "bettercotton_members.py"
+
+  wrap:
+    - name: "WRAP - Certified Facilities Search"
+      url: "https://wrapcompliance.org/en/facility-search/"
+      type: "certification_directory"
+      parse: "search_form"
+      fields: ["facility_name", "country", "address", "status"]
+      priority: 90
+      enabled: false
+      notes: "Needs form automation or API reverse engineering"
+
+global_fairs:
+  tier1:
+    - name: "ITMA - International Textile Machinery Exhibition"
+      url: "https://www.itma.com/"
+      type: "fair_exhibitors"
+      parse: "dynamic_exhibitor_directory"
+      priority: 70
+      enabled: false
+      notes: "Major machinery fair - includes both customers and suppliers"
+    
+    - name: "Techtextil - Technical Textiles and Nonwovens"
+      url: "https://techtextil.messefrankfurt.com/"
+      type: "fair_exhibitors"
+      parse: "dynamic_exhibitor_directory"
+      priority: 70
+      enabled: false
+      notes: "Technical textiles - mixed customer/supplier"
+    
+    - name: "Heimtextil - Home Textiles"
+      url: "https://heimtextil.messefrankfurt.com/"
+      type: "fair_exhibitors"
+      parse: "dynamic_exhibitor_directory"
+      priority: 70
+      enabled: false
+      notes: "Home textiles fair"
+
+  regional:
+    - name: "IGATEX Pakistan"
+      url: "https://www.igatex.com/"
+      type: "fair_exhibitors"
+      parse: "html_list"
+      priority: 65
+      enabled: false
+    
+    - name: "DTG Bangladesh"
+      url: "https://dtgbangladesh.com/"
+      type: "fair_exhibitors"
+      parse: "html_list"
+      priority: 65
+      enabled: false
+
+# HS Code Rules for Parts Supplier Detection
+hs_rules:
+  default_fallback: "392690"
+  rules:
+    - match_any: ["Gleitstein", "Gleitleiste", "Öffner Segment", "Kette", "Nadelglied", "Kluppen"]
+      primary: "845190"
+      fallback: "392690"
+
+    - match_any: ["Buchse", "Torlonbuchse", "Buchsen"]
+      primary: "848330"
+      fallback: "392690"
+
+    - match_any: ["Spindel Mutter", "Spindelmutter", "Spindle nut"]
+      primary_any_of: ["848340", "848390"]
+      fallback: "845190"
+
+  explicit_items:
+    "Monforts Spindel Mutter":
+      primary: "848340"
+      fallback: "845190"

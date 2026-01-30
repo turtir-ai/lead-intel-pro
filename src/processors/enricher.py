@@ -7,6 +7,25 @@ from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# GPT Fix #1: Free email domains to exclude from website inference
+FREE_EMAIL_DOMAINS = {
+    'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com',
+    'aol.com', 'icloud.com', 'mail.com', 'protonmail.com', 'zoho.com',
+    'yandex.com', 'gmx.com', 'gmx.de', 'web.de', 'mail.ru', 'qq.com',
+    '163.com', '126.com', 'sina.com', 'msn.com', 'me.com', 'mac.com',
+    'googlemail.com', 'pm.me', 'tutanota.com', 'fastmail.com'
+}
+
+# GPT Fix #2: Social/marketplace domains to exclude from source_url -> website
+EXCLUDE_SOURCE_DOMAINS = {
+    'linkedin.com', 'facebook.com', 'twitter.com', 'instagram.com',
+    'youtube.com', 'tiktok.com', 'pinterest.com', 'reddit.com',
+    'alibaba.com', 'aliexpress.com', 'amazon.com', 'ebay.com',
+    'made-in-china.com', 'indiamart.com', 'thomasnet.com',
+    'europages.com', 'kompass.com', 'dnb.com', 'zoominfo.com',
+    'bloomberg.com', 'reuters.com', 'wikipedia.org', 'britannica.com'
+}
+
 
 class Enricher:
     def __init__(self, targets_config=None, settings=None, sources=None, policies=None):
@@ -74,6 +93,76 @@ class Enricher:
         if self.contact_enricher:
             lead = self.contact_enricher.enrich(lead)
 
+        # GPT Fix #1: Email → Website inference
+        lead = self._infer_website_from_email(lead)
+        
+        # GPT Fix #2: source_url → website transfer
+        lead = self._transfer_source_url_to_website(lead)
+
+        return lead
+
+    def _infer_website_from_email(self, lead):
+        """GPT Fix #1: If website is empty but email is corporate, infer website from email domain."""
+        if lead.get("website") and str(lead.get("website")).lower() not in {"nan", "none", "", "[]"}:
+            return lead  # Already has website
+        
+        emails = lead.get("emails") or []
+        if isinstance(emails, str):
+            # Parse string representation of list
+            if emails.startswith("["):
+                try:
+                    import ast
+                    emails = ast.literal_eval(emails)
+                except:
+                    emails = [emails]
+            else:
+                emails = [emails]
+        
+        for email in emails:
+            if not email or not isinstance(email, str) or "@" not in email:
+                continue
+            domain = email.split("@")[-1].lower().strip()
+            if domain in FREE_EMAIL_DOMAINS:
+                continue
+            # Valid corporate domain found
+            inferred_website = f"https://{domain}"
+            lead["website"] = inferred_website
+            lead["website_source"] = "email_inference"
+            logger.debug(f"Inferred website {inferred_website} from email {email}")
+            break
+        
+        return lead
+
+    def _transfer_source_url_to_website(self, lead):
+        """GPT Fix #2: If website is empty and source_url is company site, use it as website."""
+        if lead.get("website") and str(lead.get("website")).lower() not in {"nan", "none", "", "[]"}:
+            return lead  # Already has website
+        
+        source_url = lead.get("source") or lead.get("source_url") or ""
+        if not source_url or not isinstance(source_url, str):
+            return lead
+        if source_url.lower() in {"nan", "none", ""}:
+            return lead
+        
+        # Extract domain from source_url
+        try:
+            parsed = urlparse(source_url)
+            domain = parsed.netloc.lower()
+            # Remove www. prefix for comparison
+            domain_clean = domain.replace("www.", "")
+            
+            # Check if it's a social/marketplace domain
+            if any(excl in domain_clean for excl in EXCLUDE_SOURCE_DOMAINS):
+                return lead
+            
+            # Valid source - use as website
+            base_url = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme else f"https://{parsed.netloc}"
+            lead["website"] = base_url
+            lead["website_source"] = "source_url_transfer"
+            logger.debug(f"Transferred source_url to website: {base_url}")
+        except Exception:
+            pass
+        
         return lead
 
     def _domain(self, url):

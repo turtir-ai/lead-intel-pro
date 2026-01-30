@@ -30,14 +30,31 @@ class EntityQualityGateV2:
     - REJECT: Not a company (article, machine, person, sentence)
     """
     
-    # Company suffixes indicating real entity
+    # Company suffixes indicating real entity - ONLY LEGAL FORM SUFFIXES
+    # GPT Audit Fix: Removed generic industry nouns (textile, fabric, mill, finishing)
+    # These are NOT company suffixes - they are industry descriptors
     COMPANY_SUFFIXES = re.compile(
         r'\b(gmbh|ltd|llc|inc|corp|sa\b|s\.a\.|ag\b|a\.g\.|kg\b|k\.g\.|'
         r'co\.|company|limited|plc|pty|bv\b|b\.v\.|nv\b|n\.v\.|'
         r'srl|s\.r\.l\.|spa|s\.p\.a\.|as\b|a\.s\.|oy|ab\b|'
-        r'anonim|a\.ş\.|ltd\.şti\.|ltda|cia|industries|group|holdings|'
-        r'tekstil|textile|textiles|fabrika|fabrics|mills?|'
-        r'iplik|boya|terbiye|finishing)\b',
+        r'anonim|a\.ş\.|ltd\.şti\.|ltda|cia|'
+        r'industries|group|holdings|bros|brothers|sons|e\.?\s*cia)\b',
+        re.IGNORECASE
+    )
+    
+    # OEM garbage entity patterns - article titles, news headlines extracted as "companies"
+    # GPT Audit Fix: These come from brueckner_monforts.py regex being too permissive
+    OEM_GARBAGE_PATTERNS = re.compile(
+        r'^(Advanced|Premium|Value|Booming|Fascinating|Global|Technical|Modern|New|Latest|'
+        r'Industrial|Efficient|Sustainable|Innovative|Leading|Major)\s+'
+        r'(Textile|Textiles|Finishing|Dyeing|Fabric|Fabrics|Processing|Manufacturing)s?\b|'
+        r'\bTextile\s+(Manufacturers?|Industry|Sector|Production|World|Technology)\b|'
+        r'\b(CKNER|NFORTS|ANTEX)\s+|'  # Truncated OEM names
+        r'^(For|The|In|On|At|To|Of|With)\s+\w+\s+(Textile|Finishing)|'
+        r'\bEnergy\s+Efficiencies?\s+For\b|'
+        r'\bMachine\s+Orders?\s+(From|To)\b|'
+        r'\bPuts?\s+A\s+Premium\b|'
+        r'\bThermatron\s+The\b',
         re.IGNORECASE
     )
     
@@ -57,8 +74,24 @@ class EntityQualityGateV2:
         'finishing', 'dyeing', 'bleaching', 'printing', 'processing',
         'machine', 'machinery', 'equipment', 'technology', 'process',
         'industry', 'industrial', 'production', 'products', 'product',
-        'stenter', 'tenter', 'ram', 'stenters', 'tenters',
-        'unknown', 'other', 'various', 'multiple', 'general', 'n/a', 'na'
+        'stenter', 'tenter', 'ram', 'stenters', 'tenters', 'frame', 'frames',
+        'unknown', 'other', 'various', 'multiple', 'general', 'n/a', 'na',
+        'international', 'traditional', 'better', 'deciphering', 'science', 'digital',
+        'sons', 'corporation', 'company', 'enterprise', 'enterprises', 'data',
+    }
+    
+    # Website navigation / menu items (definitely NOT companies)
+    WEBSITE_MENU_ITEMS = {
+        'about us', 'about', 'contact', 'contact us', 'home', 'products', 'services',
+        'careers', 'news', 'blog', 'faq', 'privacy', 'terms', 'login', 'register',
+        'search', 'menu', 'main', 'overview', 'gallery', 'team', 'history',
+    }
+    
+    # Country names that with S.A./Ltd are too generic
+    COUNTRY_NAMES = {
+        'chile', 'brazil', 'argentina', 'peru', 'colombia', 'ecuador', 'mexico',
+        'turkey', 'india', 'pakistan', 'bangladesh', 'egypt', 'morocco', 'tunisia',
+        'italy', 'germany', 'spain', 'portugal', 'france', 'china', 'vietnam',
     }
     
     # === NEW v2 PATTERNS ===
@@ -73,7 +106,13 @@ class EntityQualityGateV2:
         r'\bWhat\s+is\b|'                  # "What is"
         r'\bIntroduction\s+to\b|'          # "Introduction to"
         r'\b(Top|Best|Latest)\s+\d+\b|'    # "Top 10", "Best 5"
-        r'^The\s+(New|Latest|Best)\b',     # "The New..."
+        r'^The\s+(New|Latest|Best)\b|'     # "The New..."
+        r':$|'                              # Trailing colon (truncated title)
+        r'^Textile\s+Stenter\b|'           # "Textile Stenter..." article title
+        r'\bMachine$|'                      # Ends with just "Machine"
+        r',\s*(What|How|Why|Who|When|Where)\b|'  # Comma + question word (partial title)
+        r'^\w+,\s+(What|How|Why)\b|'       # "Word, What..." pattern
+        r'\bFrame$',                        # Ends with "Frame" (machine part)
         re.IGNORECASE
     )
     
@@ -85,7 +124,12 @@ class EntityQualityGateV2:
         r'\band\s+more\b|'                 # "and more"
         r'\betc\.?\b|'                     # "etc"
         r'^\d+\s+years?\b|'                # "5 years..."
-        r'\bsince\s+\d{4}\b',              # "since 2020"
+        r'\bsince\s+\d{4}\b|'              # "since 2020"
+        r'\s+at\s+the\s+|'                 # "at the" (location phrase)
+        r'\s+in\s+the\s+|'                 # "in the" (location phrase)
+        r'\s+plant\s+o[fn]?\b|'            # "plant of" truncated
+        r'\s+factory\s+o[fn]?\b|'          # "factory of" truncated
+        r'\s+facility\s+o[fn]?\b',          # "facility of" truncated
         re.IGNORECASE
     )
     
@@ -108,17 +152,87 @@ class EntityQualityGateV2:
         re.IGNORECASE
     )
     
-    # OEM names that are GOOD when standalone (these are companies we sell to)
-    OEM_COMPANIES = {
-        'brückner', 'monforts', 'krantz', 'artos', 'santex', 
-        'babcock', 'goller', 'dilmenler', 'benninger'
+    # Stenter machine manufacturers - REJECT these as they are NOT our customers
+    # They are either competitors (other stenter OEMs) or our own company (Brückner)
+    STENTER_OEM_MANUFACTURERS = {
+        'brückner', 'bruckner', 'monforts', 'krantz', 'artos', 'santex', 
+        'babcock', 'goller', 'dilmenler', 'benninger', 'ruckh', 'santex rimar',
+        'monforts textilmaschinen', 'brückner textile', 'brückner textil'
+    }
+    
+    # News/media sites - NOT companies
+    NEWS_MEDIA_SITES = {
+        'texdata', 'texdata international', 'textileworld', 'textile world',
+        'fibre2fashion', 'apparel resources', 'just-style', 'fashionunited',
+        'textile magazine', 'textile today', 'textile focus', 'textile excellence'
+    }
+    
+    # Parts supplier/trading company keywords - NOT ideal customers
+    # These are intermediaries, not end-users with finishing equipment
+    PARTS_SUPPLIER_PATTERNS = re.compile(
+        r'\b(spare\s*parts?|parts?\s*supplier|parts?\s*trading|'
+        r'machinery\s*parts?|machine\s*parts?|spares?\s*stock|'
+        r'trading\s*company|trading\s*co|import\s*export|'
+        r'consultancy|consulting|solutions?\s*provider|'
+        r'machinery\s*dealer|equipment\s*dealer|reseller|distributor)\b',
+        re.IGNORECASE
+    )
+    
+    # Country normalization map
+    COUNTRY_NORMALIZE = {
+        'türkiye': 'Turkey',
+        'turkiye': 'Turkey',
+        'turkey': 'Turkey',
+        'brasil': 'Brazil',
+        'brazil': 'Brazil',
+        'brezilya': 'Brazil',
+        'mısır': 'Egypt',
+        'misir': 'Egypt',
+        'egypt': 'Egypt',
+        'fas': 'Morocco',
+        'morocco': 'Morocco',
+        'tunus': 'Tunisia',
+        'tunisia': 'Tunisia',
+        'hindistan': 'India',
+        'india': 'India',
+        'çin': 'China',
+        'china': 'China',
+        'pakistan': 'Pakistan',
+        'bangladeş': 'Bangladesh',
+        'bangladesh': 'Bangladesh',
+        'arjantin': 'Argentina',
+        'argentina': 'Argentina',
+        'peru': 'Peru',
+        'kolombiya': 'Colombia',
+        'colombia': 'Colombia',
+        'şili': 'Chile',
+        'chile': 'Chile',
+        'ekvador': 'Ecuador',
+        'ecuador': 'Ecuador',
+        'meksika': 'Mexico',
+        'mexico': 'Mexico',
+        'almanya': 'Germany',
+        'germany': 'Germany',
+        'italya': 'Italy',
+        'italy': 'Italy',
+        'portekiz': 'Portugal',
+        'portugal': 'Portugal',
+        'ispanya': 'Spain',
+        'spain': 'Spain',
     }
     
     # High confidence source types
+    # GPT Audit Fix: REMOVED 'oem_customer' - it produces too much garbage
+    # oem_customer should NOT get automatic trust; needs website/evidence validation
     HIGH_CONFIDENCE_SOURCES = {
-        'known_manufacturer', 'oem_customer', 'association_member',
+        'known_manufacturer', 'association_member',
         'gots', 'oekotex', 'fair_exhibitor', 'directory',
         'precision_search', 'facility_verified'
+    }
+    
+    # Medium confidence - requires additional validation
+    MEDIUM_CONFIDENCE_SOURCES = {
+        'oem_customer', 'brave_search', 'fair'
     }
     
     def __init__(self):
@@ -172,6 +286,19 @@ class EntityQualityGateV2:
             grade_score += 2
             reasons.append(f'High confidence: {source_type}')
         
+        # GPT Audit Fix: oem_customer only gets bonus if it has website or evidence
+        # Otherwise it's just a brave search result with garbage entity extraction
+        elif source_type in self.MEDIUM_CONFIDENCE_SOURCES:
+            # Only give bonus if there's supporting evidence
+            if website and website.lower() not in ('nan', 'none', '', '[]'):
+                grade_score += 1
+                reasons.append(f'Medium confidence: {source_type} + website')
+            elif evidence_url and evidence_url.lower() not in ('nan', 'none', '', '[]'):
+                grade_score += 1
+                reasons.append(f'Medium confidence: {source_type} + evidence')
+            else:
+                reasons.append(f'Low trust: {source_type} (no verification)')
+        
         # Has website (+1)
         if website and website.lower() not in ('nan', 'none', '', '[]'):
             grade_score += 1
@@ -205,6 +332,25 @@ class EntityQualityGateV2:
         # 0. Minimum length check
         if len(company.strip()) < 3:
             return f'Name too short: {company}'
+        
+        # 0.5 Website menu items (ABOUT US, Contact, etc.)
+        if company_lower in self.WEBSITE_MENU_ITEMS:
+            return f'Website menu item: {company}'
+        
+        # 0.55 OEM garbage entities (article titles, headlines from OEM customer search)
+        # GPT Audit Fix: brueckner_monforts.py produces junk like "Premium On Energy Efficiencies For Textile"
+        # BUT: Skip this check if company has a real legal suffix (Ltd, S.A., GmbH etc.)
+        if self.OEM_GARBAGE_PATTERNS.search(company) and not self.COMPANY_SUFFIXES.search(company):
+            return f'OEM garbage entity: {company[:50]}'
+        
+        # 0.6 Country + company suffix pattern (Chile S.A., Brazil Ltd)
+        country_suffix_pattern = re.compile(
+            r'^(' + '|'.join(self.COUNTRY_NAMES) + r')\s*'
+            r'(s\.?a\.?|ltd\.?|inc\.?|corp\.?|llc|gmbh|limited)?$',
+            re.IGNORECASE
+        )
+        if country_suffix_pattern.match(company_lower.strip()):
+            return f'Country name as company: {company}'
         
         # 1. Article fragments (the, of, in, a, an + noun)
         article_pattern = re.compile(
@@ -252,14 +398,38 @@ class EntityQualityGateV2:
         if adj_noun_pattern.match(company):
             return f'Adjective + generic noun: {company}'
         
-        # 5. Machine/product name (but not OEM company name)
+        # 4.8 Stenter machine manufacturers - REJECT (they are OEMs, not customers)
+        if company_lower in self.STENTER_OEM_MANUFACTURERS:
+            return f'Stenter OEM manufacturer: {company}'
+        
+        # Check if company name contains OEM manufacturer name
+        for oem in self.STENTER_OEM_MANUFACTURERS:
+            if oem in company_lower and len(oem) > 4:  # Avoid false positives on short words
+                return f'Contains OEM manufacturer name ({oem}): {company}'
+        
+        # 4.9 News/media sites - REJECT (not companies)
+        if company_lower in self.NEWS_MEDIA_SITES:
+            return f'News/media site: {company}'
+        
+        for news in self.NEWS_MEDIA_SITES:
+            if news in company_lower:
+                return f'Contains news site name ({news}): {company}'
+        
+        # 5. Machine/product name pattern
         if self.MACHINE_PATTERNS.search(company):
-            # Check if it's just the OEM name alone (that's OK)
-            words = company_lower.split()
-            if len(words) == 1 and words[0] in self.OEM_COMPANIES:
-                pass  # OK - just company name
-            else:
-                return f'Machine/product name: {company[:50]}'
+            return f'Machine/product name: {company[:50]}'
+        
+        # 5.5 GPT Audit Fix: Generic textile phrases ending with industry noun but no legal suffix
+        # e.g., "Textile Manufacturers in Central America", "Global Textile", "Algerian textile"
+        generic_textile_pattern = re.compile(
+            r'^(\w+\s+){0,3}(textile|textiles|fabric|fabrics|finishing|dyeing|weaving|spinning|mills?|manufacturing)s?$',
+            re.IGNORECASE
+        )
+        if generic_textile_pattern.match(company) and not self.COMPANY_SUFFIXES.search(company):
+            # Check word count - 1-4 words ending with generic noun = not a company
+            word_count = len(company.split())
+            if word_count <= 4:
+                return f'Generic textile phrase (no legal suffix): {company}'
         
         # 6. Single word + generic term
         words = company_lower.split()
@@ -293,6 +463,48 @@ class EntityQualityGateV2:
         
         return None
     
+    def _is_parts_supplier(self, lead: Dict) -> bool:
+        """Check if lead is a parts supplier/trading company (not ideal customer)."""
+        context = str(lead.get('context', '')).lower()
+        company = str(lead.get('company', '')).lower()
+        
+        # Check company name
+        if self.PARTS_SUPPLIER_PATTERNS.search(company):
+            return True
+        
+        # Check context for strong parts supplier signals
+        parts_signals = [
+            'we have stock of',
+            'spare parts stock',
+            'largest stock of',
+            'parts supplier',
+            'machinery parts',
+            'trading company',
+            'import export',
+            'reseller',
+            'dealer',
+        ]
+        
+        for signal in parts_signals:
+            if signal in context:
+                return True
+        
+        return False
+    
+    def normalize_country(self, country: str) -> str:
+        """Normalize country name to standard English version."""
+        if not country:
+            return ''
+        
+        country_clean = str(country).strip().lower()
+        
+        # Handle NaN/None
+        if country_clean in ('nan', 'none', 'null', ''):
+            return ''
+        
+        # Look up in normalization map
+        return self.COUNTRY_NORMALIZE.get(country_clean, country.strip())
+    
     def _track_rejection(self, reason: str):
         """Track rejection reasons for analysis."""
         self.reject_count += 1
@@ -307,15 +519,31 @@ class EntityQualityGateV2:
         Process all leads and add quality grades.
         
         Returns only non-rejected leads with grade added.
+        Applies country normalization and parts supplier flagging.
         """
         qualified = []
+        parts_supplier_count = 0
         
         for lead in leads:
+            # Normalize country first
+            if lead.get('country'):
+                lead['country'] = self.normalize_country(lead['country'])
+            
             grade, reason = self.grade_entity(lead)
             
             if grade != 'REJECT':
                 lead['entity_grade'] = grade
                 lead['grade_reason'] = reason
+                
+                # Check and flag parts suppliers (don't reject, just flag)
+                if self._is_parts_supplier(lead):
+                    lead['is_parts_supplier'] = True
+                    lead['entity_grade'] = 'C'  # Downgrade parts suppliers
+                    lead['grade_reason'] = reason + '; Parts supplier flagged'
+                    parts_supplier_count += 1
+                else:
+                    lead['is_parts_supplier'] = False
+                
                 qualified.append(lead)
             else:
                 logger.debug(f"Rejected: {lead.get('company', 'Unknown')} - {reason}")
@@ -323,6 +551,7 @@ class EntityQualityGateV2:
         logger.info(f"Entity Quality Gate: {len(leads)} -> {len(qualified)} leads")
         logger.info(f"Grades: A={self.grade_counts['A']}, B={self.grade_counts['B']}, "
                    f"C={self.grade_counts['C']}, REJECT={self.grade_counts['REJECT']}")
+        logger.info(f"Parts suppliers flagged: {parts_supplier_count}")
         
         if self.rejection_reasons:
             logger.info("Rejection breakdown:")

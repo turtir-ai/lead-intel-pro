@@ -1,0 +1,44 @@
+2026-01-29 21:06:51,720 - __main__ - INFO - 
+======================================================================
+2026-01-29 21:06:51,721 - __main__ - INFO - LEAD INTEL v2 - FULL AUTONOMOUS PIPELINE
+2026-01-29 21:06:51,721 - __main__ - INFO - ======================================================================
+2026-01-29 21:06:51,721 - __main__ - INFO - Started: 2026-01-29 21:06:51
+2026-01-29 21:06:51,721 - __main__ - INFO - ======================================================================
+
+2026-01-29 21:06:51,721 - __main__ - INFO - ============================================================
+2026-01-29 21:06:51,721 - __main__ - INFO - [0s] STAGE: HARVEST - Collecting Leads
+2026-01-29 21:06:51,721 - __main__ - INFO - ============================================================
+2026-01-29 21:06:52,547 - __main__ - INFO - 🎯 Precision Customer Finder - 16 ürün için nokta atışı...
+INFO:__main__:🎯 Precision Customer Finder - 16 ürün için nokta atışı...
+2026-01-29 21:06:52,626 - src.collectors.precision_finder - INFO - ============================================================
+INFO:src.collectors.precision_finder:============================================================
+2026-01-29 21:06:52,626 - src.collectors.precision_finder - INFO - 🎯 PRECISION CUSTOMER FINDER - Starting harvest
+INFO:src.collectors.precision_finder:🎯 PRECISION CUSTOMER FINDER - Starting harvest
+2026-01-29 21:06:52,627 - src.collectors.precision_finder - INFO - ============================================================
+INFO:src.collectors.precision_finder:============================================================
+2026-01-29 21:06:52,627 - src.collectors.precision_finder - INFO - 
+📦 Phase 1: Product-based search
+INFO:src.collectors.precision_finder:
+📦 Phase 1: Product-based search
+2026-01-29 21:06:52,628 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Nadelglied Gleitstein
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Nadelglied Gleitstein
+2026-01-29 21:06:57,333 - src.collectors.precision_finder - INFO -   → 5 potential customers found
+INFO:src.collectors.precision_finder:  → 5 potential customers found
+2026-01-29 21:06:57,334 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Gleitleiste 269 mm
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Gleitleiste 269 mm
+2026-01-29 21:07:01,929 - src.collectors.precision_finder - INFO -   → 5 potential customers found
+INFO:src.collectors.precision_finder:  → 5 potential customers found
+2026-01-29 21:07:01,929 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Kluppen Gleitstein T-Stück
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Kluppen Gleitstein T-Stück
+2026-01-29 21:07:06,332 - src.collectors.precision_finder - INFO -   → 5 potential customers found
+INFO:src.collectors.precision_finder:  → 5 potential customers found
+2026-01-29 21:07:06,333 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Kluppen Gleitstein Hinten
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Kluppen Gleitstein Hinten
+2026-01-29 21:07:10,740 - src.collectors.precision_finder - INFO -   → 5 potential customers found
+INFO:src.collectors.precision_finder:  → 5 potential customers found
+2026-01-29 21:07:10,740 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Vertikal Kette SK 999
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Vertikal Kette SK 999
+2026-01-29 21:07:15,379 - src.collectors.precision_finder - INFO -   → 5 potential customers found
+INFO:src.collectors.precision_finder:  → 5 potential customers found
+2026-01-29 21:07:15,380 - src.collectors.precision_finder - INFO - 🎯 Finding customers for: Brückner Öffner Segment VII
+INFO:src.collectors.precision_finder:🎯 Finding customers for: Brückner Öffner Segment VII
