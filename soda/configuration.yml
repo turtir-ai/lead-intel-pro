@@ -1,0 +1,3 @@
+data_source lead_intel:
+  type: duckdb
+  path: data/lead_intel.db

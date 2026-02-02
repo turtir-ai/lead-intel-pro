@@ -1,8 +1,10 @@
 from datetime import datetime
 from urllib.parse import urlparse
+import re
 
 import requests
 from bs4 import BeautifulSoup
+from difflib import SequenceMatcher
 
 from src.processors.entity_extractor import EntityExtractor
 from src.utils.evidence import record_evidence
@@ -11,6 +13,72 @@ from src.utils.logger import get_logger
 from src.utils.storage import save_text_cache
 
 logger = get_logger(__name__)
+
+# Blacklist domains - bunlar asla şirket sitesi olarak kabul edilmez
+WEBSITE_BLACKLIST = {
+    'abit.org.br', 'texbrasil.com.br', 'instagram.com', 'facebook.com',
+    'linkedin.com', 'youtube.com', 'twitter.com', 'wa.me', 'rdstation.com.br',
+    'tiktok.com', 'pinterest.com', 'api.whatsapp.com', 'bit.ly', 't.co',
+    'global-standard.org', 'oeko-tex.com', 'google.com', 'apple.com',
+    'play.google.com', 'apps.apple.com', 'spotify.com', 'soundcloud.com'
+}
+
+
+def domain_similarity(company_name: str, domain: str) -> float:
+    """Şirket adı ile domain arasındaki benzerlik skorunu hesapla"""
+    # Domain'den uzantıyı çıkar
+    domain_parts = domain.lower().replace('www.', '').split('.')
+    domain_name = domain_parts[0] if domain_parts else domain
+    
+    # Şirket adını normalize et
+    company_clean = re.sub(r'[^a-zA-Z0-9]', '', company_name.lower())
+    domain_clean = re.sub(r'[^a-zA-Z0-9]', '', domain_name)
+    
+    # SequenceMatcher ile benzerlik
+    return SequenceMatcher(None, company_clean, domain_clean).ratio()
+
+
+def select_best_website(websites: set, company_name: str) -> str:
+    """En uygun şirket sitesini seç"""
+    if not websites:
+        return ""
+    
+    valid_websites = []
+    for url in websites:
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower().replace('www.', '')
+            
+            # Blacklist kontrolü
+            if any(bl in domain for bl in WEBSITE_BLACKLIST):
+                continue
+            
+            # mailto: ve tel: kontrol
+            if parsed.scheme in ('mailto', 'tel', 'javascript'):
+                continue
+            
+            # Geçersiz URL kontrolü
+            if not parsed.netloc or len(domain) < 4:
+                continue
+                
+            valid_websites.append((url, domain))
+        except:
+            continue
+    
+    if not valid_websites:
+        return ""
+    
+    if len(valid_websites) == 1:
+        return valid_websites[0][0]
+    
+    # Birden fazla varsa, şirket adına en benzer domain'i seç
+    scored = []
+    for url, domain in valid_websites:
+        sim = domain_similarity(company_name, domain)
+        scored.append((sim, url))
+    
+    scored.sort(reverse=True, key=lambda x: x[0])
+    return scored[0][1]
 
 
 class TexbrasilCompanies:
@@ -55,15 +123,31 @@ class TexbrasilCompanies:
                 continue
 
             text = soup.get_text(separator="\n", strip=True)
-            websites = set(self.extractor.extract_websites(text))
+            
+            # Website toplama - önce "Website" label'ı ara
+            websites = set()
+            
+            # 1. Label-based: "Website", "Site", "Web" yanındaki linki bul
+            for label_text in ['Website', 'Site', 'Web', 'Página']:
+                label = soup.find(string=re.compile(rf'\b{label_text}\b', re.IGNORECASE))
+                if label:
+                    parent = label.parent
+                    if parent:
+                        link = parent.find_next('a', href=True)
+                        if link and link['href'].startswith('http'):
+                            websites.add(link['href'].strip())
+            
+            # 2. Tüm external linkleri topla (fallback)
             for a in soup.find_all("a", href=True):
                 href = a["href"].strip()
                 if href.startswith("http") and "texbrasil.com.br" not in href:
                     websites.add(href)
+            
+            # 3. Text içinden URL extract
+            websites.update(self.extractor.extract_websites(text))
 
-            website = ""
-            if websites:
-                website = sorted(websites)[0]
+            # En iyi website'ı seç (blacklist + similarity ile)
+            website = select_best_website(websites, name)
 
             snippet = text[:400].replace("\n", " ").strip()
             content_hash = save_text_cache(url, text[:5000])

@@ -2,6 +2,8 @@ from pathlib import Path
 import yaml
 
 from src.utils.logger import get_logger
+from src.processors.heuristic_scorer import HeuristicScorer
+from src.processors.hs_mapper import HSMapper
 
 logger = get_logger(__name__)
 
@@ -27,7 +29,12 @@ class Scorer:
         self.products_config = products_config or self._load_products_config()
         self.product_keywords = self._build_product_keywords()
         self.oem_keywords = self._build_oem_keywords()
+        self.oem_keywords = self._build_oem_keywords()
         self.competitor_names = self._build_competitor_names()
+
+        # Initialize Heuristic Brain
+        self.heuristic_scorer = HeuristicScorer()
+        self.hs_mapper = HSMapper()
 
     def _load_products_config(self):
         """Load products.yaml if available."""
@@ -116,7 +123,24 @@ class Scorer:
         # Add company name and source to context for better matching
         full_text = f"{context_text} {lead.get('company', '')} {lead.get('source', '')}"
         
-        fit_score = self._keyword_score(full_text, self.fit_keywords, max_score=40)
+        # V5 UPGRADE: Use Heuristic Scorer for "Fit"
+        # This replaces simpler keyword matching with Proximity + Negative Logic
+        heuristic_res = self.heuristic_scorer.score_text(
+            full_text, 
+            title=lead.get('title', ''), 
+            url=lead.get('url', '')
+        )
+        
+        # Use raw score from heuristic (can be negative!) but cap for the fit component
+        # Heuristic scorer gives ~10-100 points. limit to 40 for compatibility with weights
+        fit_score = max(0, min(40, heuristic_res['raw_score']))
+        
+        # Append V5 evidence
+        if heuristic_res.get('evidence'):
+            prev_evidence = lead.get('evidence', '')
+            lead['evidence'] = f"{prev_evidence} | {heuristic_res['evidence']}".strip(' | ')
+
+        # fit_score = self._keyword_score(full_text, self.fit_keywords, max_score=40)
         capacity_score = self._keyword_score(full_text, self.capacity_keywords, max_score=20)
         import_score = self._import_priority_score(lead, full_text)
         reachability_score = self._reachability_score(lead)
@@ -153,6 +177,14 @@ class Scorer:
         lead["oem_bonus"] = round(oem_bonus, 2)
         lead["competitor_bonus"] = round(competitor_bonus, 2)
         lead["score"] = round(min(150, final_score), 2)  # Allow up to 150 for hot leads
+
+        # HS mapping for CRM/export (based on product keywords)
+        hs_map = self.hs_mapper.map_text(full_text)
+        lead["hs_primary"] = hs_map.get("hs_primary", "")
+        lead["hs_secondary"] = hs_map.get("hs_secondary", "")
+        lead["hs_fallback"] = ",".join(hs_map.get("hs_fallback", []) or [])
+        lead["hs_reason"] = hs_map.get("hs_reason", "")
+        lead["hs_matched_keywords"] = ",".join(hs_map.get("hs_matched_keywords", []) or [])
         return lead
 
     def _product_fit_score(self, text):

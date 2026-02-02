@@ -79,6 +79,13 @@ class RoleClassifier:
         self.customer_patterns = [re.compile(p, re.IGNORECASE) for p in CUSTOMER_PATTERNS]
         self.intermediary_patterns = [re.compile(p, re.IGNORECASE) for p in INTERMEDIARY_PATTERNS]
 
+    def _safe_str(self, value):
+        """Convert value to string safely, handling NaN/None."""
+        import pandas as pd
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return ""
+        return str(value)
+    
     def classify(self, lead):
         """
         Classify a lead's role.
@@ -88,9 +95,9 @@ class RoleClassifier:
         - role_confidence: 'high', 'medium', 'low'
         - role_signals: list of keywords/patterns that triggered classification
         """
-        company = (lead.get("company") or "").lower()
-        context = (lead.get("context") or "").lower()
-        source_type = (lead.get("source_type") or "").lower()
+        company = self._safe_str(lead.get("company")).lower()
+        context = self._safe_str(lead.get("context")).lower()
+        source_type = self._safe_str(lead.get("source_type")).lower()
         
         # Combine text for analysis
         text = f"{company} {context}"

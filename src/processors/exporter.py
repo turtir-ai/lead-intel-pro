@@ -4,8 +4,34 @@ import pandas as pd
 import yaml
 
 from src.utils.logger import get_logger
+from src.processors.schemas import QualityGate
 
 logger = get_logger(__name__)
+
+# V10.3: Country to region mapping for strategic regions
+COUNTRY_REGION_MAP = {
+    # North Africa
+    "Egypt": "north_africa",
+    "Morocco": "north_africa", 
+    "Tunisia": "north_africa",
+    "Algeria": "north_africa",
+    "Libya": "north_africa",
+    # Middle East / South Asia
+    "Turkey": "middle_east",
+    "Türkiye": "middle_east",
+    "Pakistan": "middle_east",
+    "India": "middle_east",
+    "Bangladesh": "middle_east",
+    "Sri Lanka": "middle_east",
+    # South America
+    "Brazil": "south_america",
+    "Argentina": "south_america",
+    "Colombia": "south_america",
+    "Peru": "south_america",
+    "Ecuador": "south_america",
+    "Mexico": "south_america",
+    "Chile": "south_america",
+}
 
 
 class Exporter:
@@ -36,6 +62,9 @@ class Exporter:
         # GPT Audit Fix: Apply export filters from scoring.yaml
         df = self._apply_export_filters(df)
         
+        # V5 UPGRADE: Quality Gate Enforcement
+        df = QualityGate.enforce_contracts(df)
+
         if df.empty:
             logger.warning("No leads passed export filters")
             return None
@@ -79,16 +108,37 @@ class Exporter:
             df = df[~df["company"].str.lower().str.contains(pattern, na=False)]
             logger.info(f"Name exclusion filter: {before} -> {len(df)}")
         
-        # 4. Require reachability (website/email)
+        # 4. Require reachability (website/email) - V10.3: Exempt strategic regions
         require_reach = self.export_cfg.get("require_reachability", False)
         reach_level = self.export_cfg.get("require_reachability_level", "website")
-        if require_reach:
+        exempt_regions = set(self.export_cfg.get("reachability_exempt_regions", []))
+        
+        if require_reach and "website" in df.columns:
             before = len(df)
-            if reach_level == "website" and "website" in df.columns:
-                df = df[df["website"].notna() & (df["website"] != "") & (df["website"] != "[]")]
-            elif reach_level == "email" and "emails" in df.columns:
-                df = df[df["emails"].notna() & (df["emails"] != "") & (df["emails"] != "[]")]
-            logger.info(f"Reachability filter ({reach_level}): {before} -> {len(df)}")
+            
+            # V10.3: Build mask - require website OR be in exempt region
+            has_website = df["website"].notna() & (df["website"] != "") & (df["website"] != "[]")
+            
+            # V10.3: Check if lead is in exempt region (by region column or country mapping)
+            is_exempt = pd.Series([False] * len(df), index=df.index)
+            
+            if exempt_regions:
+                # Check region column first
+                if "region" in df.columns:
+                    is_exempt = is_exempt | df["region"].isin(exempt_regions)
+                
+                # Also check country -> region mapping
+                if "country" in df.columns:
+                    country_region = df["country"].map(COUNTRY_REGION_MAP)
+                    is_exempt = is_exempt | country_region.isin(exempt_regions)
+                
+                exempt_count = is_exempt.sum()
+                logger.info(f"Exempt regions found: {exempt_count} leads ({exempt_regions})")
+            
+            mask = has_website | is_exempt
+            logger.info(f"Reachability filter ({reach_level}): {before} -> {mask.sum()}")
+            
+            df = df[mask]
         
         # 5. Filter out parts suppliers (keep only non-flagged)
         if "is_parts_supplier" in df.columns:

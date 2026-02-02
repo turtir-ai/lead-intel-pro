@@ -21,14 +21,31 @@ from src.collectors.amith_directory import AmithDirectory
 from src.collectors.abit_directory import AbitDirectory
 from src.collectors.known_manufacturers import KnownManufacturersCollector
 from src.collectors.discovery.brave_search import BraveSearchClient, SourceDiscovery
+# GPT V10.4: South America collectors
+from src.collectors.colombiatex_harvester import ColombiatexHarvester
+from src.collectors.emitex_harvester import EmitexHarvester
+from src.collectors.peru_moda_harvester import PeruModaHarvester
+from src.collectors.itmf_bootstrap import ITMFBootstrap
 from src.processors.dedupe import LeadDedupe
 from src.processors.enricher import Enricher
 from src.processors.entity_extractor import EntityExtractor
 from src.processors.entity_quality_gate_v2 import EntityQualityGateV2
 from src.processors.lead_role_classifier import LeadRoleClassifier
 from src.processors.exporter import Exporter
+# Phase 1: Data Quality Foundation
+from src.processors.data_cleaner import DataCleaner
+from src.processors.entity_validator import EntityValidator
 from src.processors.pdf_processor import PdfProcessor
+# Phase 3: Advanced Discovery
+from src.collectors.latam_sources import LATAMSourcesOrchestrator
+from src.collectors.discovery.network_sniffer import GOTSDirectorySniffer
 from src.processors.scorer import Scorer
+# GPT V10.4: SCE scoring and quality reporting
+from src.processors.sce_scorer import SCEScorer
+from src.processors.quality_reporter import QualityReporter
+from src.processors.enrichment_queue import EnrichmentQueue
+# GPT V3: Import fix functions
+from gpt_v3_fix import fix_schema, apply_noise_filter, enhanced_role_classify, validate_sce_sales_ready, export_split
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -108,7 +125,9 @@ def discover_sources(settings, sources):
     if not discovery_cfg.get("enabled", False):
         logger.info("Discovery disabled.")
         return
-    client = BraveSearchClient(settings.get("api_keys", {}).get("brave"), discovery_cfg)
+    # Get Brave API key from env or settings
+    brave_api_key = os.environ.get("BRAVE_API_KEY") or settings.get("api_keys", {}).get("brave")
+    client = BraveSearchClient(brave_api_key, discovery_cfg)
     discoverer = SourceDiscovery(client, disallow_domains=discovery_cfg.get("disallow_domains"))
     results = discoverer.discover(discovery_cfg.get("queries", []), max_results=discovery_cfg.get("max_results", 10))
     os.makedirs("data/staging", exist_ok=True)
@@ -126,11 +145,13 @@ def harvest(targets, competitors, settings, policies, sources):
     extractor = EntityExtractor()
     bettercotton = BetterCottonMembers(settings=settings, policies=policies)
     gots = GotsCertifiedSuppliers(settings=sources.get("gots", {}))
+    # Get Brave API key from env or settings
+    brave_api_key = os.environ.get("BRAVE_API_KEY") or settings.get("api_keys", {}).get("brave")
     websearch = CompetitorWebSearch(
-        settings.get("api_keys", {}).get("brave"), settings=sources.get("discovery", {}), policies=policies
+        brave_api_key, settings=sources.get("discovery", {}), policies=policies
     )
     egypt_tec = EgyptTextileExportCouncil(
-        settings.get("api_keys", {}).get("brave"), settings=sources.get("discovery", {}), policies=policies
+        brave_api_key, settings=sources.get("discovery", {}), policies=policies
     )
     exhibitor_lists = ExhibitorListCollector(settings=settings, policies=policies)
     texbrasil = TexbrasilCompanies(settings=settings, policies=policies)
@@ -247,6 +268,49 @@ def harvest(targets, competitors, settings, policies, sources):
     all_leads.extend(known_mfg_leads)
     logger.info(f"Added {len(known_mfg_leads)} known manufacturers from config")
 
+    # === GPT V10.4: South America Collectors ===
+    sa_cfg = sources.get("south_america", {})
+    
+    # Colombiatex
+    if sa_cfg.get("colombiatex", {}).get("enabled", True):
+        try:
+            colombiatex = ColombiatexHarvester(settings=settings, policies=policies)
+            colombiatex_leads = colombiatex.harvest()
+            all_leads.extend(colombiatex_leads)
+            logger.info(f"Colombiatex: {len(colombiatex_leads)} leads harvested")
+        except Exception as e:
+            logger.warning(f"Colombiatex harvest failed: {e}")
+    
+    # Emitex Argentina
+    if sa_cfg.get("emitex", {}).get("enabled", True):
+        try:
+            emitex = EmitexHarvester(settings=settings, policies=policies)
+            emitex_leads = emitex.harvest()
+            all_leads.extend(emitex_leads)
+            logger.info(f"Emitex Argentina: {len(emitex_leads)} leads harvested")
+        except Exception as e:
+            logger.warning(f"Emitex harvest failed: {e}")
+    
+    # Peru Moda / ADEX
+    if sa_cfg.get("peru_moda", {}).get("enabled", True):
+        try:
+            peru_moda = PeruModaHarvester(settings=settings, policies=policies)
+            peru_leads = peru_moda.harvest()
+            all_leads.extend(peru_leads)
+            logger.info(f"Peru Moda/ADEX: {len(peru_leads)} leads harvested")
+        except Exception as e:
+            logger.warning(f"Peru Moda harvest failed: {e}")
+    
+    # ITMF/EURATEX Association Bootstrap
+    if sa_cfg.get("itmf_bootstrap", {}).get("enabled", False):
+        try:
+            itmf = ITMFBootstrap(settings=settings, policies=policies)
+            itmf_leads = itmf.harvest()
+            all_leads.extend(itmf_leads)
+            logger.info(f"ITMF Bootstrap: {len(itmf_leads)} leads harvested")
+        except Exception as e:
+            logger.warning(f"ITMF Bootstrap failed: {e}")
+
     pdf_results = pdf_processor.process_all_pdfs()
     for source, content in pdf_results.items():
         companies = extractor.extract_companies(content, strict=False)
@@ -319,50 +383,95 @@ def enrich(targets, settings, sources, policies):
     total = len(existing_keys) + processed
     logger.info(f"Enriched {processed} new leads. Total enriched: {total}.")
 
-def dedupe():
+def dedupe(settings=None):
     logger.info("Stage: dedupe")
     if not os.path.exists("data/staging/leads_enriched.csv"):
         logger.warning("No enriched leads found.")
         return
-    df = pd.read_csv("data/staging/leads_enriched.csv")
+    df = pd.read_csv("data/staging/leads_enriched.csv", on_bad_lines='warn')
     leads = df.to_dict(orient="records")
     
-    # === V5: Apply Quality Gate V2 BEFORE dedupe ===
+    # === PHASE 1: Data Quality Foundation ===
+    logger.info(f"Starting Phase 1: Data Cleaning on {len(leads)} leads")
+    
+    # Step 1: Noise filtering and domain validation
+    data_quality_cfg = settings.get("data_quality", {}) if settings else {}
+    cleaner = DataCleaner(config=data_quality_cfg.get("noise_filter"))
+    cleaned_leads, rejected_noise = cleaner.clean_dataset(leads)
+    
+    cleaning_stats = cleaner.get_stats(len(leads), cleaned_leads, rejected_noise)
+    logger.info(f"Noise Filter: {cleaning_stats['cleaned_count']} kept, "
+               f"{cleaning_stats['rejected_count']} rejected "
+               f"({cleaning_stats['noise_rate']}% noise rate)")
+    logger.info(f"Domain Validator: {cleaning_stats['domains_cleared']} invalid domains cleared, "
+               f"{cleaning_stats['needs_discovery']} need website discovery")
+    
+    # Save rejected noise for audit
+    if rejected_noise:
+        pd.DataFrame(rejected_noise).to_csv("outputs/crm/dropped_noise.csv", index=False)
+        logger.info(f"Saved {len(rejected_noise)} noise entries to outputs/crm/dropped_noise.csv")
+    
+    # Step 2: Entity classification
+    validator = EntityValidator(config=data_quality_cfg.get("entity_classification"))
+    validated_leads, skipped_entities = validator.batch_validate(cleaned_leads)
+    
+    entity_dist = validator.get_distribution(cleaned_leads)
+    logger.info(f"Entity Classification: {entity_dist['total']} leads classified")
+    for entity_type, pct in entity_dist['percentages'].items():
+        count = entity_dist['counts'][entity_type]
+        logger.info(f"  - {entity_type}: {count} ({pct}%)")
+    
+    logger.info(f"Processable: {len(validated_leads)}, Skipped: {len(skipped_entities)}")
+    
+    # Save skipped entities for audit
+    if skipped_entities:
+        pd.DataFrame(skipped_entities).to_csv("outputs/crm/skipped_entities.csv", index=False)
+        logger.info(f"Saved {len(skipped_entities)} skipped entities to outputs/crm/skipped_entities.csv")
+    
+    # Use validated leads for rest of pipeline
+    quality_leads = validated_leads
+    
+    # === V5: Apply Quality Gate V2 AFTER Phase 1 ===
     quality_gate = EntityQualityGateV2()
-    quality_leads = []
+    final_quality_leads = []
     rejected_count = 0
     rejection_reasons = {}
     
-    for lead in leads:
+    for lead in quality_leads:
         # grade_entity expects a lead dict, not individual params
         grade, reason = quality_gate.grade_entity(lead)
         lead["entity_quality"] = grade
         lead["quality_reason"] = reason
         
         if grade != "REJECT":
-            quality_leads.append(lead)
+            final_quality_leads.append(lead)
         else:
             rejected_count += 1
             rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
     
-    logger.info(f"Quality Gate V2: {len(quality_leads)} passed, {rejected_count} rejected")
+    logger.info(f"Quality Gate V2: {len(final_quality_leads)} passed, {rejected_count} rejected")
     for reason, count in sorted(rejection_reasons.items(), key=lambda x: -x[1])[:10]:
         logger.info(f"  - {reason}: {count}")
     
     # === V5: Apply Role Classifier ===
+    # GPT V10.4: Updated to handle 4-tuple return (customers, intermediaries, brands, unknown)
     classifier = LeadRoleClassifier()
-    customers, intermediaries, unknown = classifier.classify_leads(quality_leads)
-    logger.info(f"Role Classification: CUSTOMER={len(customers)}, INTERMEDIARY={len(intermediaries)}, UNKNOWN={len(unknown)}")
+    customers, intermediaries, brands, unknown = classifier.classify_leads(final_quality_leads)
+    logger.info(f"Role Classification: CUSTOMER={len(customers)}, INTERMEDIARY={len(intermediaries)}, BRAND={len(brands)}, UNKNOWN={len(unknown)}")
     
     # Mark roles
     for lead in customers:
         lead["lead_role"] = "CUSTOMER"
     for lead in intermediaries:
         lead["lead_role"] = "INTERMEDIARY"
+    for lead in brands:
+        lead["lead_role"] = "BRAND"
     for lead in unknown:
         lead["lead_role"] = "UNKNOWN"
     
+    # GPT V10.4: Exclude brands from main output (they are not stenter customers)
     all_classified = customers + intermediaries + unknown
+    logger.info(f"Excluding {len(brands)} BRAND leads from main output")
     
     deduper = LeadDedupe()
     merged, audit = deduper.dedupe(all_classified)
@@ -370,7 +479,195 @@ def dedupe():
     pd.DataFrame(audit).to_csv("outputs/dedupe_audit.csv", index=False)
     logger.info(f"Dedupe complete: {len(merged)} leads retained.")
 
-def score_and_export(targets, scoring):
+def brave_discovery(settings=None):
+    """Phase 2: Brave Search Discovery & Evidence Collection"""
+    logger.info("Stage: brave discovery & evidence")
+    
+    if not os.path.exists("data/processed/leads_master.csv"):
+        logger.warning("No master leads found. Run dedupe first.")
+        return
+    
+    # Load settings
+    brave_cfg = settings.get("brave_discovery", {}) if settings else {}
+    
+    if not brave_cfg.get("enabled", True):
+        logger.info("Brave discovery disabled in settings")
+        return
+    
+    # Import Brave client
+    from src.processors.brave_integration import BraveSearchClient
+    
+    brave_client = BraveSearchClient()
+    
+    if not brave_client.api_key:
+        logger.error("Brave API key not configured. Set Brave_API_KEY or BRAVE_API_KEY env variable.")
+        return
+    
+    # Load leads
+    df = pd.read_csv("data/processed/leads_master.csv")
+    leads = df.to_dict(orient="records")
+    
+    logger.info(f"Processing {len(leads)} leads for Brave discovery")
+    
+    # Phase 2A: Website Discovery
+    if brave_cfg.get("website_discovery", {}).get("enabled", True):
+        logger.info("=== Phase 2A: Website Discovery ===")
+        
+        # Filter leads needing discovery
+        needs_discovery = [
+            lead for lead in leads 
+            if not lead.get('website') or lead.get('needs_discovery')
+        ]
+        
+        logger.info(f"Found {len(needs_discovery)} leads needing website discovery")
+        
+        if needs_discovery:
+            batch_size = brave_cfg.get("website_discovery", {}).get("batch_size", 50)
+            max_leads = brave_cfg.get("website_discovery", {}).get("max_leads_per_run", 200)
+            
+            # Limit batch
+            to_process = needs_discovery[:max_leads]
+            logger.info(f"Processing {len(to_process)} leads (max: {max_leads})")
+            
+            # Batch discover
+            updated_leads = brave_client.batch_discover(to_process)
+            
+            # Update original leads list
+            for updated in updated_leads:
+                for i, lead in enumerate(leads):
+                    if lead.get('company') == updated.get('company'):
+                        leads[i] = updated
+                        break
+    
+    # Phase 2B: Evidence Search
+    if brave_cfg.get("evidence_search", {}).get("enabled", True):
+        logger.info("=== Phase 2B: SCE Evidence Search ===")
+        
+        batch_size = brave_cfg.get("evidence_search", {}).get("batch_size", 50)
+        max_leads = brave_cfg.get("evidence_search", {}).get("max_leads_per_run", 200)
+        
+        # Limit batch for testing
+        to_process = leads[:max_leads]
+        logger.info(f"Searching evidence for {len(to_process)} leads (max: {max_leads})")
+        
+        # Batch evidence search
+        leads = brave_client.batch_evidence_search(to_process) + leads[max_leads:]
+    
+    # Save updated leads
+    pd.DataFrame(leads).to_csv("data/processed/leads_master.csv", index=False)
+    
+    # Stats
+    stats = brave_client.get_stats()
+    discovered_websites = sum(1 for l in leads if l.get('website_source') == 'brave_discovery')
+    has_evidence = sum(1 for l in leads if l.get('sce_has_evidence'))
+    strong_evidence = sum(1 for l in leads if l.get('sce_confidence') == 'strong')
+    
+    logger.info(f"Brave Discovery Complete:")
+    logger.info(f"  - API calls made: {stats['calls_made']}")
+    logger.info(f"  - Websites discovered: {discovered_websites}")
+    logger.info(f"  - Leads with evidence: {has_evidence}")
+    logger.info(f"  - Strong evidence: {strong_evidence}")
+
+def phase3_discovery(settings=None, sources=None):
+    """Phase 3: Advanced Discovery - Network Sniffing + LATAM + PDF Extraction"""
+    logger.info("=== Phase 3: Advanced Discovery ===")
+    
+    # Load settings
+    phase3_enabled = settings.get("phase3_discovery", {}).get("enabled", True) if settings else True
+    
+    if not phase3_enabled:
+        logger.info("Phase 3 disabled in settings")
+        return
+    
+    all_leads = []
+    
+    # 1. Network Sniffing - GOTS Directory
+    logger.info("--- Phase 3A: Network Sniffing (GOTS) ---")
+    network_cfg = sources.get("network_sniffing", {}) if sources else {}
+    
+    if network_cfg.get("enabled", True):
+        gots_cfg = network_cfg.get("sources", {}).get("gots_directory", {})
+        
+        if gots_cfg.get("enabled", True):
+            try:
+                sniffer = GOTSDirectorySniffer()
+                gots_leads = sniffer.harvest_gots_members()
+                
+                logger.info(f"Network sniffing collected {len(gots_leads)} GOTS companies")
+                all_leads.extend(gots_leads)
+                
+            except Exception as e:
+                logger.error(f"GOTS network sniffing failed: {e}")
+    
+    # 2. LATAM Sources Collection
+    logger.info("--- Phase 3B: LATAM Sources ---")
+    latam_cfg = sources.get("latam_sources", {}) if sources else {}
+    
+    if latam_cfg.get("enabled", True):
+        try:
+            orchestrator = LATAMSourcesOrchestrator()
+            delay = latam_cfg.get("rate_limit", {}).get("delay_between_sources", 2.0)
+            
+            latam_leads = orchestrator.collect_all(delay_between_sources=delay)
+            
+            logger.info(f"LATAM collection gathered {len(latam_leads)} companies")
+            all_leads.extend(latam_leads)
+            
+        except Exception as e:
+            logger.error(f"LATAM sources collection failed: {e}")
+    
+    # 3. PDF Extraction
+    logger.info("--- Phase 3C: PDF Exhibitor Extraction ---")
+    pdf_cfg = sources.get("pdf_sources", {}) if sources else {}
+    
+    if pdf_cfg.get("enabled", True):
+        input_dir = pdf_cfg.get("input_dir", "data/inputs")
+        
+        if os.path.exists(input_dir):
+            processor = PdfProcessor(data_dir=input_dir)
+            
+            # Find all PDFs in input directory
+            pdf_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.pdf')]
+            
+            if pdf_files:
+                logger.info(f"Found {len(pdf_files)} PDF files to process")
+                
+                for pdf_file in pdf_files:
+                    try:
+                        pdf_path = os.path.join(input_dir, pdf_file)
+                        companies = processor.extract_exhibitor_table(pdf_path)
+                        
+                        logger.info(f"Extracted {len(companies)} companies from {pdf_file}")
+                        all_leads.extend(companies)
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing {pdf_file}: {e}")
+            else:
+                logger.info("No PDF files found in input directory")
+        else:
+            logger.warning(f"PDF input directory not found: {input_dir}")
+    
+    # Save Phase 3 leads
+    if all_leads:
+        output_path = "data/staging/leads_phase3.csv"
+        pd.DataFrame(all_leads).to_csv(output_path, index=False)
+        logger.info(f"Saved {len(all_leads)} Phase 3 leads to {output_path}")
+        
+        # Stats by source
+        source_stats = {}
+        for lead in all_leads:
+            source = lead.get('source_name', 'unknown')
+            source_stats[source] = source_stats.get(source, 0) + 1
+        
+        logger.info("Phase 3 Collection Summary:")
+        for source, count in sorted(source_stats.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"  - {source}: {count} companies")
+    else:
+        logger.warning("No leads collected in Phase 3")
+    
+    return all_leads
+
+def score_and_export(targets, scoring, settings=None):
     logger.info("Stage: score + export")
     if not os.path.exists("data/processed/leads_master.csv"):
         logger.warning("No master leads found.")
@@ -390,6 +687,12 @@ def score_and_export(targets, scoring):
 
     scorer = Scorer(targets, scoring, country_priority=country_priority)
     scored = [scorer.score_lead(lead) for lead in df.to_dict(orient="records")]
+
+    # === GPT V10.4: Apply SCE (Stenter Customer Evidence) Scoring ===
+    sce_scorer = SCEScorer()
+    scored, sce_stats = sce_scorer.score_batch(scored)
+    logger.info(f"SCE Scoring: {sce_stats['sales_ready']} sales-ready, "
+               f"{sce_stats['high_confidence']} high confidence")
 
     export_cfg = scoring.get("export", {}) if isinstance(scoring, dict) else {}
     allowed_sources = set(export_cfg.get("allowed_source_types", []) or [])
@@ -491,6 +794,48 @@ def score_and_export(targets, scoring):
     if lookalikes:
         exporter.export_targets(lookalikes, tag="_lookalikes")
 
+    # === GPT V10.4: Generate Quality Report ===
+    reporter = QualityReporter()
+    report = reporter.generate_report(scored, sample_size=50, run_name="pipeline_run")
+    logger.info(f"Quality Report generated with {len(report['recommendations'])} recommendations")
+    
+    # === GPT V10.4: Export SCE Sales-Ready leads ===
+    sales_ready_sce = [lead for lead in scored if lead.get("sce_sales_ready")]
+    if sales_ready_sce:
+        exporter.export_targets(sales_ready_sce, tag="_sce_sales_ready")
+        logger.info(f"Exported {len(sales_ready_sce)} SCE sales-ready leads")
+    
+    # === GPT V3: Apply post-processing fixes ===
+    logger.info("Applying GPT V3 post-processing fixes...")
+    try:
+        targets_path = "outputs/crm/targets_master.csv"
+        if os.path.exists(targets_path):
+            df_fix = pd.read_csv(targets_path)
+            original_count = len(df_fix)
+            
+            # Patch A: Schema fix
+            df_fix = fix_schema(df_fix)
+            
+            # Patch B: Noise filter
+            df_fix, noise_df = apply_noise_filter(df_fix)
+            if len(noise_df) > 0:
+                noise_df.to_csv("outputs/crm/dropped_noise.csv", index=False)
+            
+            # Patch C: Enhanced role classification
+            df_fix['role'] = df_fix.apply(enhanced_role_classify, axis=1)
+            
+            # Patch D: SCE validation
+            df_fix['sce_sales_ready_validated'] = df_fix.apply(validate_sce_sales_ready, axis=1)
+            
+            # Patch E: Export split
+            customers, channels, unknown, sales_ready_v3 = export_split(df_fix)
+            
+            logger.info(f"GPT V3 Fix: {original_count} -> {len(df_fix)} leads")
+            logger.info(f"  Customers: {len(customers)}, Channels: {len(channels)}, Unknown: {len(unknown)}")
+            logger.info(f"  Sales Ready (validated): {len(sales_ready_v3)}")
+    except Exception as e:
+        logger.warning(f"GPT V3 fix failed: {e}")
+
 def trade_rank(targets, settings):
     logger.info("Stage: trade-prioritize")
     fetcher = TradeFetcher(settings)
@@ -514,7 +859,7 @@ def main():
     parser = argparse.ArgumentParser(description="Lead Intelligence Pipeline v2 - Skill Based")
     parser.add_argument(
         "stage",
-        choices=["discover", "harvest", "enrich", "dedupe", "score", "trade-rank", "ui", "all"],
+        choices=["discover", "harvest", "enrich", "dedupe", "brave", "phase3", "score", "trade-rank", "ui", "all"],
         help="Pipeline stage to run",
     )
     
@@ -538,9 +883,13 @@ def main():
     if args.stage in ("enrich", "all"):
         enrich(targets, settings, sources, policies)
     if args.stage in ("dedupe", "all"):
-        dedupe()
+        dedupe(settings=settings)
+    if args.stage in ("brave", "all"):
+        brave_discovery(settings=settings)
+    if args.stage in ("phase3", "all"):
+        phase3_discovery(settings=settings, sources=sources)
     if args.stage in ("score", "all"):
-        score_and_export(targets, scoring)
+        score_and_export(targets, scoring, settings=settings)
     if args.stage in ("trade-rank", "all"):
         trade_rank(targets, settings)
     if args.stage == "ui":

@@ -37,6 +37,9 @@ export:
     - "fair"
     - "known_manufacturer"
     - "precision_search"
+    - "brave_search"         # V10.3: Added for North Africa leads
+    - "oem_customer"         # V10.3: OEM customer discoveries
+    - "regional_collector"   # V10.3: Regional collector results
   min_score: 0.5
   exclude_name_keywords:
     - "withdrawn"
@@ -44,6 +47,12 @@ export:
   lookalike_top_countries: 5
   require_reachability: true
   require_reachability_level: "website"
+  
+  # V10.3: Strategic regions exempt from website requirement
+  # These regions often have companies without online presence
+  reachability_exempt_regions:
+    - "north_africa"
+    - "middle_east"
   
   # GPT Fix #6: Region quotas to prevent over-representation
   # V10 Update: Added north_africa and middle_east as separate regions

@@ -15,6 +15,11 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
+import asyncio
+try:
+    from src.probers.playwright_probe import probe_page
+except ImportError:
+    probe_page = None
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -269,6 +274,12 @@ class AutoDiscover:
             # If patterns fail, try intelligent extraction
             if not exhibitors:
                 exhibitors = self._intelligent_extract(soup)
+
+            # --- Playwright Probe Fallback ---
+            if not exhibitors and probe_page:
+                logger.info(f"🕸️ Static scrape yielded 0 results. Attempting Playwright Probe on: {url}")
+                exhibitors = self._probe_and_scrape(url)
+            # ---------------------------------
             
             # Add metadata
             for ex in exhibitors:
@@ -420,6 +431,71 @@ class AutoDiscover:
                 "count": len(data),
                 "data": data
             }, f, indent=2, ensure_ascii=False)
+
+    def _probe_and_scrape(self, url: str) -> List[Dict]:
+        """Use Playwright probe to capture dynamic content and APIs."""
+        try:
+            # Run async probe in sync context
+            probe_dir = self.data_path / "probe" / "exhibitors"
+            result = asyncio.run(probe_page(url, output_dir=str(probe_dir)))
+            
+            # 1. Parse content from full DOM (after JS load)
+            if result.get("content"):
+                logger.info("  ✓ Probe captured DOM content")
+                soup = BeautifulSoup(result["content"], 'html.parser')
+                exhibitors = self._intelligent_extract(soup)
+                if exhibitors:
+                     logger.info(f"  ✓ Probe DOM extraction: {len(exhibitors)} exhibitors")
+                     return exhibitors
+
+            # 2. Analyze captured API logs (Network Sniffing)
+            api_data = result.get("api_data", [])
+            for entry in api_data:
+                data = entry.get("data")
+                extracted = self._extract_from_json(data)
+                if extracted:
+                    logger.info(f"  ✓ Probe API extraction: {len(extracted)} exhibitors from {entry.get('url', 'unknown')}")
+                    return extracted
+                    
+            return []
+        except Exception as e:
+            logger.error(f"Probe failed: {e}")
+            return []
+
+    def _extract_from_json(self, data: Any) -> List[Dict]:
+        """Recursively search for list of company-like objects in JSON."""
+        if isinstance(data, list):
+            # Check if likely a list of companies
+            valid_items = 0
+            temp_results = []
+            for item in data:
+                if isinstance(item, dict):
+                    # Guesses for company name fields
+                    name = item.get("name") or item.get("company") or item.get("title") or item.get("Name") or item.get("Company") or item.get("exhibitorName")
+                    if name and isinstance(name, str) and len(name) > 2:
+                        temp_results.append({
+                            "company": name,
+                            "website": item.get("website") or item.get("url") or item.get("Website") or "",
+                            "country": item.get("country") or item.get("Country") or "",
+                            "email": item.get("email") or item.get("Email") or ""
+                        })
+                        valid_items += 1
+            
+            if valid_items > 3 and len(data) > 0 and (valid_items / len(data) > 0.3): # Loose threshold
+                return temp_results
+                
+            # Recursion for nested lists
+            for item in data:
+                res = self._extract_from_json(item)
+                if res: return res
+                
+        elif isinstance(data, dict):
+             # Explore values
+             for key, value in data.items():
+                 res = self._extract_from_json(value)
+                 if res: return res
+                 
+        return []
     
     def get_comtrade_importers(self, hs_code: str = "845190", year: int = 2023) -> List[Dict]:
         """

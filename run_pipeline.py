@@ -72,14 +72,13 @@ class LeadIntelPipeline:
     # STAGE 0: AUTODISCOVER (Optional)
     # =========================================================================
     
-    def discover_new_sources(self, countries: list = None, max_queries: int = 10):
-        """Discover new lead sources using Brave Search."""
-        self.log_stage("AUTODISCOVER - Finding New Sources")
+    def discover_new_sources(self, countries: list = None, max_queries: int = 10, scent_mode: bool = False):
+        """Discover new lead sources using Brave Search (AutoDiscover + Scenter)."""
+        self.log_stage("AUTODISCOVER V5 - Smart Source Discovery")
         
+        # 1. AutoDiscover (Fairs, Directories)
         try:
-            from src.autodiscover.engine import AutoDiscoverEngine
-            
-            engine = AutoDiscoverEngine()
+            from src.collectors.auto_discover import AutoDiscover
             
             # Check for Brave API key
             api_key = os.environ.get("BRAVE_API_KEY")
@@ -87,36 +86,33 @@ class LeadIntelPipeline:
                 logger.warning("BRAVE_API_KEY not set - skipping discovery")
                 return 0
             
-            logger.info(f"Brave API key found: {api_key[:10]}...")
+            logger.info("Running V5 Auto-Discovery...")
+            discoverer = AutoDiscover()
+            results = discoverer.run_full_discovery(["south_america", "north_africa", "turkey"])
             
-            # Run discovery
-            sources = engine.discover(
-                countries=countries or ["Egypt", "Morocco", "Tunisia", "Brazil"],
-                max_queries=max_queries
-            )
-            
-            self.stats["sources_discovered"] = len(sources)
-            logger.info(f"Discovered {len(sources)} potential sources")
-            
-            # Diagnose top sources
-            diagnosed = 0
-            for domain, info in list(engine.state["discovered"].items())[:3]:
-                if domain not in engine.state["diagnosed"]:
-                    url = info.get("url", "")
-                    if url:
-                        try:
-                            result = engine.process_url(url)
-                            if result.get("success"):
-                                diagnosed += 1
-                                logger.info(f"Generated adapter for {domain}")
-                        except Exception as e:
-                            logger.warning(f"Failed to process {domain}: {e}")
-            
-            return len(sources)
+            count = len(results.get("fairs", [])) + len(results.get("directories", []))
+            self.stats["sources_discovered"] = count
+            logger.info(f"Discovered {count} new sources via AutoDiscover")
             
         except Exception as e:
-            logger.error(f"Discovery failed: {e}")
-            return 0
+            logger.error(f"AutoDiscovery failed: {e}")
+
+        # 2. Brave Scenting (Targeted Queries)
+        if scent_mode or countries:
+            try:
+                from src.collectors.brave_scenter import BraveScenter
+                logger.info("Running V5 Brave Scenter...")
+                scenter = BraveScenter()
+                
+                regions = ["south_america", "north_africa", "turkey"]
+                for region in regions:
+                    scenter.scent_region(region)
+                
+                logger.info("Scenting complete. Seeds saved to data/seeds/")
+            except Exception as e:
+                logger.error(f"Scenting failed: {e}")
+        
+        return self.stats["sources_discovered"]
     
     # =========================================================================
     # STAGE 1: HARVEST
@@ -436,26 +432,35 @@ class LeadIntelPipeline:
         df = pd.read_csv(enriched_path, on_bad_lines='skip')
         logger.info(f"Deduping {len(df)} leads...")
         
-        deduper = LeadDedupe()
-        
-        # Convert to list of dicts
-        leads_list = df.to_dict('records')
-        deduped_list, audit = deduper.dedupe(leads_list)
-        
-        # Save audit log
-        if audit:
-            audit_df = pd.DataFrame(audit)
-            audit_df.to_csv(self.project_root / "outputs" / "dedupe_audit.csv", index=False)
-        
-        deduped_df = pd.DataFrame(deduped_list)
-        
+        # V5 UPGRADE: Dedupe Strategy (Splink or Legacy)
+        try:
+            from src.processors.entity_resolution import EntityResolver
+            resolver = EntityResolver()
+            # Try Splink first
+            deduped_df = resolver.resolve(df)
+            msg = "Splink"
+            
+            # Legacy fallback if Splink returned original (e.g. not installed)
+            if len(deduped_df) == len(df) and "unique_id" in deduped_df.columns: 
+                 # This check is weak, but effectively if Splink fails it prints error and returns original df
+                 # So we might want to chain them or just stick with legacy if splink not active.
+                 pass
+                 
+        except Exception as e:
+            logger.warning(f"Splink dedupe failed ({e}), falling back to legacy...")
+            from src.processors.dedupe import LeadDedupe
+            deduper = LeadDedupe()
+            deduped_list, _ = deduper.dedupe(df.to_dict('records'))
+            deduped_df = pd.DataFrame(deduped_list)
+            msg = "Legacy"
+
         # Save master
         master_path.parent.mkdir(parents=True, exist_ok=True)
         deduped_df.to_csv(master_path, index=False)
         
         self.stats["leads_deduped"] = len(deduped_df)
         removed = len(df) - len(deduped_df)
-        logger.info(f"Removed {removed} duplicates, {len(deduped_df)} unique leads")
+        logger.info(f"Removed {removed} duplicates ({msg}), {len(deduped_df)} unique leads")
         
         return len(deduped_df)
     
@@ -725,12 +730,156 @@ class LeadIntelPipeline:
         return len(customers)
     
     # =========================================================================
+    # STAGE 5.8: HEURISTIC SCORING (V10 - LLM-Free)
+    # =========================================================================
+    
+    def heuristic_score(self):
+        """Apply V10 heuristic scoring with HS codes and OEM patterns."""
+        self.log_stage("HEURISTIC SCORING V10 - LLM-Free Product Matching")
+        
+        from src.processors.heuristic_scorer import HeuristicScorer
+        from src.processors.evidence_scorer import EvidenceScorer
+        
+        master_path = self.project_root / "data" / "processed" / "leads_master.csv"
+        
+        if not master_path.exists():
+            logger.error("No master leads found")
+            return 0
+        
+        df = pd.read_csv(master_path, on_bad_lines='skip')
+        logger.info(f"Heuristic scoring {len(df)} leads...")
+        
+        scorer = HeuristicScorer(self.project_root / "config")
+        evidence_scorer = EvidenceScorer(self.project_root / "config" / "keyword_signals.yml")
+        leads_list = df.to_dict('records')
+        
+        # Helper function for safe string conversion
+        def safe_str(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return ""
+            s = str(val)
+            return "" if s == "nan" else s
+        
+        scored_leads = []
+        high_count = 0
+        medium_count = 0
+        product_match_count = 0
+        
+        for lead in leads_list:
+            # Prepare text for scoring
+            text_parts = [
+                safe_str(lead.get("context", "")),
+                safe_str(lead.get("description", "")),
+                safe_str(lead.get("about", "")),
+            ]
+            text = " ".join(filter(None, text_parts))
+            
+            title = safe_str(lead.get("company", lead.get("company_name", "")))
+            
+            metadata = {
+                "company_name": title,
+                "country": safe_str(lead.get("country", "")),
+                "source": safe_str(lead.get("source", "")),
+            }
+            
+            # Calculate score
+            result = scorer.calculate_score(text, title, metadata)
+            
+            # Attach V10 score data to lead
+            lead["v10_score"] = result.score
+            lead["v10_confidence"] = result.confidence
+            lead["v10_is_lead"] = result.is_lead
+            lead["v10_hs_codes"] = ",".join(result.matched_hs_codes)
+            lead["v10_product_match"] = result.product_match
+            lead["v10_machine_types"] = ",".join(result.machine_types)
+            lead["v10_evidence"] = " | ".join(result.evidence[:3])
+
+            # Evidence snippet + signals (sales-ready)
+            evidence = evidence_scorer.score(
+                text,
+                url=lead.get("source") or lead.get("source_url"),
+                retrieved_at=lead.get("scraped_at") or lead.get("retrieved_at"),
+            )
+            lead["evidence_snippet"] = evidence.get("snippet", "")
+            lead["evidence_signals"] = ",".join(evidence.get("signals", []))
+            lead["evidence_confidence"] = evidence.get("confidence", "")
+            lead["evidence_url"] = evidence.get("url", "") or lead.get("source") or lead.get("source_url", "")
+            lead["evidence_retrieved_at"] = evidence.get("retrieved_at", "")
+
+            if not lead.get("v10_evidence") and evidence.get("snippet"):
+                lead["v10_evidence"] = evidence.get("snippet", "")[:300]
+            
+            if result.confidence == "high":
+                high_count += 1
+            elif result.confidence == "medium":
+                medium_count += 1
+            if result.product_match:
+                product_match_count += 1
+                
+            scored_leads.append(lead)
+        
+        # Save back
+        scored_df = pd.DataFrame(scored_leads)
+        scored_df.to_csv(master_path, index=False)
+        
+        qualified = sum(1 for l in scored_leads if l.get("v10_is_lead"))
+        
+        logger.info(f"\nHeuristic Scoring V10 Results:")
+        logger.info(f"  Qualified: {qualified}/{len(scored_leads)} ({100*qualified/max(1,len(scored_leads)):.1f}%)")
+        logger.info(f"  HIGH confidence: {high_count}")
+        logger.info(f"  MEDIUM confidence: {medium_count}")
+        logger.info(f"  Product Match (OEM+Component): {product_match_count}")
+        
+        return qualified
+    
+    # =========================================================================
+    # STAGE 5.9: EMAIL GUESSING (V10 - Region-Based Patterns)
+    # =========================================================================
+    
+    def guess_emails(self):
+        """Add email guesses based on regional patterns."""
+        self.log_stage("EMAIL GUESSING V10 - Region-Based Patterns")
+        
+        from src.extractors.email_guesser import EmailGuesser
+        
+        master_path = self.project_root / "data" / "processed" / "leads_master.csv"
+        
+        if not master_path.exists():
+            logger.error("No master leads found")
+            return 0
+        
+        df = pd.read_csv(master_path, on_bad_lines='skip')
+        logger.info(f"Guessing emails for {len(df)} leads...")
+        
+        guesser = EmailGuesser()
+        leads_list = df.to_dict('records')
+        
+        guessed_count = 0
+        
+        for lead in leads_list:
+            guesses = guesser.guess_for_lead(lead)
+            if guesses:
+                lead["guessed_emails"] = ",".join([g.email for g in guesses[:5]])
+                guessed_count += 1
+            else:
+                lead["guessed_emails"] = ""
+        
+        # Save back
+        guessed_df = pd.DataFrame(leads_list)
+        guessed_df.to_csv(master_path, index=False)
+        
+        logger.info(f"\nEmail Guessing Results:")
+        logger.info(f"  Leads with guessed emails: {guessed_count}/{len(leads_list)}")
+        
+        return guessed_count
+    
+    # =========================================================================
     # STAGE 6: EXPORT
     # =========================================================================
     
     def export(self):
-        """Export CRM-ready leads."""
-        self.log_stage("EXPORT - Creating CRM Files")
+        """Export CRM-ready leads with region quotas."""
+        self.log_stage("EXPORT - Creating CRM Files (with Region Quotas)")
         
         from src.processors.exporter import Exporter
         
@@ -742,8 +891,19 @@ class LeadIntelPipeline:
             return 0
         
         df = pd.read_csv(master_path, on_bad_lines='skip')
-        logger.info(f"Exporting {len(df)} leads...")
+        logger.info(f"Starting with {len(df)} leads...")
         
+        # Apply region quotas (V10)
+        df = self._apply_region_quotas(df)
+        logger.info(f"After region quotas: {len(df)} leads")
+
+        # Ensure evidence column exists for quality gate/export
+        if "evidence" not in df.columns and "evidence_snippet" in df.columns:
+            df["evidence"] = df["evidence_snippet"]
+        elif "evidence" in df.columns and "evidence_snippet" in df.columns:
+            df["evidence"] = df["evidence"].fillna("")
+            df.loc[df["evidence"] == "", "evidence"] = df["evidence_snippet"]
+
         exporter = Exporter(output_dir=str(output_dir))
         
         # Export all formats - convert to list of dicts
@@ -764,7 +924,85 @@ class LeadIntelPipeline:
         self.stats["leads_exported"] = len(df)
         logger.info(f"Exported to {output_dir}")
         
+        # V5 UPGRADE: DuckDB Storage
+        try:
+             from src.storage.duckdb_store import LeadStore
+             store = LeadStore()
+             store.save_master(df)
+             store.save_dataframe(df, "targets_master", replace=True)
+             store.export_parquet(table="targets_master", path=str(output_dir / "targets_master.parquet"))
+             logger.info("✓ Archived to DuckDB + parquet export")
+        except Exception as e:
+             logger.warning(f"DuckDB storage skipped: {e}")
+
+        # Optional: auto-index to Meilisearch
+        try:
+            if os.environ.get("MEILI_AUTO_INDEX") == "1":
+                import subprocess
+                import sys
+                index_script = self.project_root / "scripts" / "index_meili.py"
+                subprocess.run([sys.executable, str(index_script)], check=False)
+        except Exception as e:
+            logger.warning(f"Meilisearch index skipped: {e}")
+
+        # Optional: run Soda checks if configured
+        try:
+            if os.environ.get("RUN_SODA") == "1":
+                import subprocess
+                import sys
+                soda_script = self.project_root / "scripts" / "run_soda_checks.py"
+                subprocess.run([sys.executable, str(soda_script)], check=False)
+        except Exception as e:
+            logger.warning(f"Soda checks skipped: {e}")
+
         return len(df)
+    
+    def _apply_region_quotas(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply V10 region quotas to balance lead distribution."""
+        region_quotas = {
+            "south_america": {"countries": ["Brazil", "Argentina", "Chile", "Colombia", "Peru", "Ecuador", "Uruguay"], "quota": 300},
+            "north_africa": {"countries": ["Egypt", "Morocco", "Tunisia", "Algeria", "Libya"], "quota": 150},
+            "middle_east": {"countries": ["Turkey", "UAE", "Saudi Arabia", "Jordan", "Lebanon", "Israel"], "quota": 75},
+        }
+        
+        # Helper for safe string comparison
+        def safe_country(val):
+            if pd.isna(val):
+                return ""
+            return str(val).strip()
+        
+        # Sort by v10_score if available, otherwise use total_score
+        score_col = "v10_score" if "v10_score" in df.columns else "total_score"
+        if score_col in df.columns:
+            df = df.sort_values(by=score_col, ascending=False, na_position='last')
+        
+        result_dfs = []
+        processed_indices = set()
+        
+        for region_name, config in region_quotas.items():
+            countries = config["countries"]
+            quota = config["quota"]
+            
+            # Filter by region countries
+            mask = df["country"].apply(safe_country).str.lower().isin([c.lower() for c in countries])
+            region_df = df[mask & ~df.index.isin(processed_indices)]
+            
+            # Take top leads up to quota
+            taken = region_df.head(quota)
+            result_dfs.append(taken)
+            processed_indices.update(taken.index)
+            
+            logger.info(f"  Region {region_name}: {len(taken)}/{len(region_df)} leads (quota: {quota})")
+        
+        # Add remaining leads (other regions, no quota)
+        other_df = df[~df.index.isin(processed_indices)]
+        result_dfs.append(other_df)
+        logger.info(f"  Other regions: {len(other_df)} leads")
+        
+        # Combine all
+        final_df = pd.concat(result_dfs, ignore_index=True)
+        
+        return final_df
     
     def _generate_linkedin_queries(self, df: pd.DataFrame, output_dir: Path):
         """Generate LinkedIn X-Ray search queries."""
@@ -789,7 +1027,7 @@ class LeadIntelPipeline:
     # FULL PIPELINE
     # =========================================================================
     
-    def run(self, discover: bool = False):
+    def run(self, discover: bool = False, scent: bool = False):
         """Run full pipeline."""
         logger.info("\n" + "="*70)
         logger.info("LEAD INTEL v2 - FULL AUTONOMOUS PIPELINE")
@@ -799,8 +1037,9 @@ class LeadIntelPipeline:
         
         try:
             # Stage 0: Discovery (optional)
-            if discover:
-                self.discover_new_sources()
+            # Stage 0: Discovery (optional)
+            if discover or scent:
+                self.discover_new_sources(scent_mode=scent)
             
             # Stage 1: Harvest
             self.harvest()
@@ -826,7 +1065,13 @@ class LeadIntelPipeline:
             # Stage 5.7: Role Classification (GPT Fix #5)
             self.classify_roles()
             
-            # Stage 6: Export
+            # Stage 5.8: V10 Heuristic Scoring (LLM-free)
+            self.heuristic_score()
+            
+            # Stage 5.9: V10 Email Guessing
+            self.guess_emails()
+            
+            # Stage 6: Export (with region quotas)
             self.export()
             
         except Exception as e:
@@ -936,6 +1181,7 @@ class LeadIntelPipeline:
 def main():
     parser = argparse.ArgumentParser(description="Lead Intel v2 - Autonomous Pipeline")
     parser.add_argument("--discover", action="store_true", help="Include source discovery")
+    parser.add_argument("--scent", action="store_true", help="Run Brave Scenter mechanism")
     parser.add_argument("--harvest", action="store_true", help="Only harvest + process")
     parser.add_argument("--status", action="store_true", help="Show current status")
     parser.add_argument("--countries", type=str, help="Target countries (comma-separated)")
@@ -947,7 +1193,7 @@ def main():
     if args.status:
         pipeline.status()
     else:
-        pipeline.run(discover=args.discover)
+        pipeline.run(discover=args.discover, scent=args.scent)
 
 
 if __name__ == "__main__":

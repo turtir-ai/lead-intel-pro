@@ -79,7 +79,12 @@ class ContactVerifier:
         
         website = lead.get("website") or ""
         website_domain = self._extract_domain(website)
-        country = (lead.get("country") or "").lower().strip()
+            # Safe string conversion for country
+        country_raw = lead.get("country")
+        if isinstance(country_raw, float): # Handle NaN
+             country = ""
+        else:
+             country = str(country_raw or "").lower().strip()
         
         # Verify emails
         emails = self._parse_list(lead.get("emails", []))

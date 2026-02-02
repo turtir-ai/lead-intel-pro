@@ -41,13 +41,25 @@ class LeadRoleClassifier:
     
     # Positive signals (indicates CUSTOMER - textile producer)
     CUSTOMER_KEYWORDS = {
-        # Processing activities (what they DO)
+        # Processing activities (what they DO) - EN
         'dyeing', 'finishing', 'bleaching', 'printing', 'coating',
         'sanforizing', 'mercerizing', 'stentering', 'tentering',
         'wet processing', 'fabric processing', 'textile processing',
+        'heat setting', 'thermosetting', 'shrinkage control',
         
         # Turkish equivalents
         'boya', 'terbiye', 'apre', 'baski', 'kaplama', 'yikama',
+        'boyahane', 'terbiyehane', 'ram makinesi',
+        
+        # Portuguese equivalents (GPT V2 update)
+        'tinturaria', 'acabamento', 'beneficiamento', 'estamparia',
+        'alvejamento', 'tecelagem', 'malharia', 'têxtil',
+        'lavanderia industrial', 'fábrica de tecidos', 'indústria têxtil',
+        
+        # Spanish equivalents (GPT V2 update)
+        'tintorería', 'acabados', 'tejeduría', 'textil',
+        'planta de acabado', 'fábrica textil', 'industria textil',
+        'estampado', 'blanqueo', 'teñido',
         
         # Facility types
         'mill', 'dyehouse', 'dye house', 'finishing plant', 'finishing house',
@@ -79,35 +91,73 @@ class LeadRoleClassifier:
     
     # Negative signals (indicates INTERMEDIARY - not our customer)
     INTERMEDIARY_KEYWORDS = {
-        # Dealer/distributor
+        # Dealer/distributor - EN
         'dealer', 'distributor', 'trading', 'trader', 'importer', 'exporter',
         'agent', 'broker', 'reseller', 'wholesale', 'retailer',
+        
+        # Portuguese equivalents (GPT V2 update)
+        'representante', 'distribuição', 'importadora', 'exportadora',
+        'revenda', 'atacado', 'varejo', 'comércio',
+        
+        # Spanish equivalents (GPT V2 update)
+        'distribuidor', 'representante', 'importador', 'exportador',
+        'revendedor', 'mayorista', 'minorista', 'comercio',
         
         # Spare parts (competitor or same business as us)
         'spare parts', 'spareparts', 'yedek parça', 'parts supplier',
         'machine parts', 'replacement parts', 'accessories',
+        'peças de reposição', 'repuestos',  # PT/ES
         
-        # Machine seller (not user)
+        # Machine seller (not user) - EN
         'machine sales', 'machine dealer', 'equipment dealer',
         'machinery trading', 'selling machines', 'buy machines',
+        
+        # Portuguese equivalents
+        'máquinas', 'equipamentos', 'automação', 'peças',
+        'rolamentos', 'correias', 'venda de máquinas',
+        
+        # Spanish equivalents
+        'maquinas', 'equipos', 'automatización', 'piezas',
+        'rodamientos', 'correas', 'venta de máquinas',
+        
+        # Accessory suppliers (not customers)
+        'botões', 'etiquetas', 'zíper', 'aviamentos',  # PT
+        'botones', 'etiquetas', 'cremallera', 'avíos',  # ES
         
         # News/media
         'news', 'magazine', 'journal', 'publication', 'media',
         'press release', 'announcement', 'article', 'blog',
+        'notícias', 'revista',  # PT
+        'noticias', 'revista',  # ES
         
         # Job/recruitment
         'job', 'career', 'vacancy', 'hiring', 'recruitment', 'employment',
+        'emprego', 'vaga', 'contratação',  # PT
+        'empleo', 'vacante', 'contratación',  # ES
         
         # Marketplace
         'marketplace', 'b2b portal', 'directory listing', 'classifieds',
     }
     
-    # Strong negative signals (definitely not customer)
+    # Strong negative signals (definitely not customer) - GPT V2 update
     STRONG_INTERMEDIARY_SIGNALS = {
         'spare parts shop', 'parts supplier', 'machine trading company',
         'textile machinery dealer', 'equipment trading', 'machinery sales',
         'buy and sell', 'import export trading', 'trading house',
         'news portal', 'industry magazine', 'textile news',
+        # Fashion brands (not our target)
+        'moda', 'fashion brand', 'clothing brand', 'moda feminina',
+        'moda masculina', 'moda infantil', 'moda íntima', 'moda praia',
+        'moda festa', 'moda fitness', 'grife', 'estilista',
+    }
+    
+    # BRAND indicators (moda/fashion - not our customers) - GPT V2 update
+    BRAND_KEYWORDS = {
+        'moda', 'fashion', 'grife', 'estilista', 'designer',
+        'collection', 'coleção', 'colección', 'lookbook',
+        'showroom', 'boutique', 'atelier', 'ateliê',
+        'ready to wear', 'prêt-à-porter', 'haute couture',
+        'spring summer', 'fall winter', 'primavera verão',
     }
     
     # Source type weights
@@ -131,7 +181,7 @@ class LeadRoleClassifier:
     }
     
     def __init__(self):
-        self.stats = {'CUSTOMER': 0, 'INTERMEDIARY': 0, 'UNKNOWN': 0}
+        self.stats = {'CUSTOMER': 0, 'INTERMEDIARY': 0, 'BRAND': 0, 'UNKNOWN': 0}
     
     def classify(self, lead: Dict) -> RoleScore:
         """
@@ -153,7 +203,15 @@ class LeadRoleClassifier:
         
         positive_signals = []
         negative_signals = []
+        brand_signals = []
         score = 0.0
+        brand_score = 0.0
+        
+        # 0. Check BRAND keywords first (fashion brands are not our customers)
+        for keyword in self.BRAND_KEYWORDS:
+            if keyword in all_text:
+                brand_signals.append(f"brand:{keyword}")
+                brand_score += 0.2
         
         # 1. Check strong signals first
         for signal in self.STRONG_CUSTOMER_SIGNALS:
@@ -187,7 +245,12 @@ class LeadRoleClassifier:
             negative_signals.append(f"source:{source_type}")
         
         # 4. Determine role and confidence
-        if score >= 0.3:
+        # Check for BRAND first (fashion/moda companies)
+        if brand_score >= 0.4 and score < 0.3:
+            role = 'BRAND'
+            confidence = min(0.9, 0.5 + brand_score)
+            negative_signals.extend(brand_signals[:3])
+        elif score >= 0.3:
             role = 'CUSTOMER'
             confidence = min(0.9, 0.5 + score)
         elif score <= -0.2:
@@ -206,15 +269,16 @@ class LeadRoleClassifier:
             negative_signals=negative_signals[:5]
         )
     
-    def classify_leads(self, leads: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    def classify_leads(self, leads: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]:
         """
-        Classify all leads into customer/intermediary/unknown.
+        Classify all leads into customer/intermediary/brand/unknown.
         
         Returns:
-            Tuple of (customers, intermediaries, unknown)
+            Tuple of (customers, intermediaries, brands, unknown)
         """
         customers = []
         intermediaries = []
+        brands = []
         unknown = []
         
         for lead in leads:
@@ -223,24 +287,26 @@ class LeadRoleClassifier:
             # Add classification to lead
             lead['role'] = result.role
             lead['role_confidence'] = result.confidence
-            lead['role_positive'] = '; '.join(result.positive_signals)
-            lead['role_negative'] = '; '.join(result.negative_signals)
+            lead['role_signals'] = '; '.join(result.positive_signals + result.negative_signals)
             
             if result.role == 'CUSTOMER':
                 customers.append(lead)
             elif result.role == 'INTERMEDIARY':
                 intermediaries.append(lead)
+            elif result.role == 'BRAND':
+                brands.append(lead)
             else:
                 unknown.append(lead)
         
         logger.info(f"Role Classification: CUSTOMER={len(customers)}, "
-                   f"INTERMEDIARY={len(intermediaries)}, UNKNOWN={len(unknown)}")
+                   f"INTERMEDIARY={len(intermediaries)}, BRAND={len(brands)}, UNKNOWN={len(unknown)}")
         
-        return customers, intermediaries, unknown
+        return customers, intermediaries, brands, unknown
     
     def filter_customers_only(self, leads: List[Dict], include_unknown: bool = True) -> List[Dict]:
         """
         Filter leads to keep only customers (and optionally unknown).
+        Excludes BRAND and INTERMEDIARY.
         
         Args:
             leads: List of lead dictionaries
@@ -249,7 +315,9 @@ class LeadRoleClassifier:
         Returns:
             List of leads that are likely customers
         """
-        customers, intermediaries, unknown = self.classify_leads(leads)
+        customers, intermediaries, brands, unknown = self.classify_leads(leads)
+        
+        logger.info(f"Filtered out: {len(brands)} brands, {len(intermediaries)} intermediaries")
         
         if include_unknown:
             result = customers + unknown

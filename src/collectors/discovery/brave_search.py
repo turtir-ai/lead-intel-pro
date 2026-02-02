@@ -1,3 +1,4 @@
+import os
 import time
 from urllib.parse import urlparse
 
@@ -10,9 +11,10 @@ logger = get_logger(__name__)
 
 
 class BraveSearchClient:
-    def __init__(self, api_key, settings=None):
+    def __init__(self, api_key=None, settings=None):
         settings = settings or {}
-        self.api_key = api_key
+        # Get API key from parameter, env, or settings
+        self.api_key = api_key or os.environ.get("BRAVE_API_KEY") or os.environ.get("Brave_API_KEY")
         self.base_url = settings.get("base_url", "https://api.search.brave.com/res/v1/web/search")
         self.timeout = settings.get("timeout", 30)
         self.delay = float(settings.get("delay", 1.0))

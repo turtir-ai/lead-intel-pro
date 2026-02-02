@@ -17,6 +17,86 @@ trade:
 harvest:
   resume: true
 
+# Phase 2: Brave Discovery & Evidence
+brave_discovery:
+  enabled: true
+  website_discovery:
+    enabled: true
+    batch_size: 50
+    max_leads_per_run: 1365  # Process all leads
+  evidence_search:
+    enabled: true
+    max_leads_per_run: 1365  # Process all leads
+
+# Data Quality (Phase 1)
+data_quality:
+  noise_filter:
+    enabled: true
+    noise_keywords:
+      - "event"
+      - "news"
+      - "summit"
+      - "conference"
+      - "expo"
+      - "fair"
+      - "exhibition"
+      - "review"
+      - "association"
+      - "council"
+      - "federation"
+      - "chamber"
+    generic_terms:
+      - "textile"
+      - "dyeing"
+      - "finishing"
+      - "knitting"
+      - "weaving"
+      - "fabric"
+      - "garment"
+      - "yarn"
+    min_company_name_length: 3
+  domain_validator:
+    enabled: true
+    blocked_domains:
+      - "global-trace-base.org"
+      - "oeko-tex.com"
+      - "abit.org.br"
+      - "texbrasil.com.br"
+      - "febratex.com.br"
+      - "instagram.com"
+      - "facebook.com"
+      - "linkedin.com"
+      - "indiamart.com"
+      - "alibaba.com"
+      - "made-in-china.com"
+      - "tradekey.com"
+      - "wikipedia.org"
+      - "youtube.com"
+  entity_classification:
+    enabled: true
+    end_user_keywords:
+      - "dyeing"
+      - "textile mill"
+      - "fabric processing"
+      - "finishing"
+      - "knitting"
+      - "weaving"
+      - "terbiye"
+      - "boyahane"
+      - "örme"
+    intermediary_keywords:
+      - "machinery"
+      - "equipment"
+      - "technology"
+      - "machine seller"
+      - "brückner"
+      - "lafer"
+      - "monforts"
+      - "babcock"
+    skip_entity_types:
+      - "intermediary"
+      - "association"
+
 # Enrichment settings (website discovery + contact crawl)
 enrichment:
   resume: true
@@ -90,6 +170,15 @@ enrichment:
       - "/iletisim.html"
       - "/contacto"
       - "/contato"
+      - "/fale-conosco"
+      - "/faleconosco"
+      - "/sobre-nos"
+      - "/sobre"
+      - "/institucional"
+      - "/sobre-nosotros"
+      - "/contactanos"
+      - "/hakkimizda"
+      - "/unternehmen"
       - "/empresa"
       - "/quienes-somos"
       - "/quem-somos"
@@ -104,6 +193,20 @@ enrichment:
       - "iletisim"
       - "contato"
       - "contacto"
+      - "fale conosco"
+      - "fale-conosco"
+      - "faleconosco"
+      - "sobre nos"
+      - "sobre-nos"
+      - "sobre nosotros"
+      - "sobre-nosotros"
+      - "atendimento"
+      - "suporte"
+      - "hakkimizda"
+      - "unternehmen"
+      - "quem somos"
+      - "quienes somos"
+      - "contactanos"
       - "empresa"
       - "quem-somos"
       - "quienes-somos"

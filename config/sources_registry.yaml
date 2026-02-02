@@ -6,8 +6,8 @@
 # Rate Limit: requests per second (respect anti-bot measures)
 # =============================================================================
 
-version: "1.0"
-last_updated: "2025-01-30"
+version: "1.1"
+last_updated: "2026-02-01"
 
 # =============================================================================
 # TIER 1: CRITICAL PRIORITY (95-92) - Global Directories
@@ -160,6 +160,86 @@ sources:
       - colombia
       - latam
     notes: "Filter JS with 'Ver más' lazy-load handling"
+
+  - id: caitme_exhibitors_list
+    name: "CAITME - Exhibitors List (Central Asia)"
+    country: Uzbekistan
+    region: central_asia
+    source_type: fair_exhibitors
+    format: html
+    homepage_url: "https://caitme.uz/"
+    directory_url: "https://caitme.uz/zh/exhibitors-list"
+    collector: playwright_probe
+    priority: 84
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: high
+    access: open
+    extractability: medium
+    js_render: true
+    fields:
+      - company_name
+      - country
+      - booth
+      - product_category
+    tags:
+      - fair
+      - exhibitors
+      - central_asia
+      - machinery
+    notes: "Exhibitor list; parse table + filter finishing/dyeing categories."
+
+  - id: tgsd_members
+    name: "TGSD - Members List (Turkey)"
+    country: Turkey
+    region: turkey
+    source_type: association_members
+    format: html
+    homepage_url: "https://tgsd.org.tr/"
+    directory_url: "https://tgsd.org.tr/en/uyelerimiz/"
+    collector: html_directory_collector
+    priority: 82
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - website
+    tags:
+      - association
+      - turkey
+      - members
+      - apparel
+    notes: "Member list includes company + website; filter to finishing/dyeing mills."
+
+  - id: sni_comite_textil_asociados
+    name: "SNI Comité Textil - Asociados (Peru)"
+    country: Peru
+    region: south_america
+    source_type: association_members
+    format: html
+    homepage_url: "https://sni.org.pe/"
+    directory_url: "https://sni.org.pe/comite-textil/"
+    collector: html_directory_collector
+    priority: 82
+    rate_limit: 1
+    anti_bot_risk: medium
+    expected_leads: medium
+    access: open
+    extractability: medium
+    fields:
+      - company_name
+      - address
+      - phone
+      - website
+    tags:
+      - association
+      - peru
+      - members
+      - textile
+    notes: "Page includes an associated companies list; filter to textile/finishing operators."
 
   - id: texprocess_exhibitors
     name: "Texprocess Frankfurt - Exhibitor Search"

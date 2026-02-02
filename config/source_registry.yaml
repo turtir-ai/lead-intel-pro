@@ -1,0 +1,72 @@
+
+# Lead Intel V5 - Source Discovery Registry
+# Query templates for Brave Scenter
+
+regions:
+  south_america:
+    fairs:
+      - "site:.br feira textil expositores 2024 2025"
+      - "site:.br lista de expositores textil"
+      - "site:.co feria textil expositores"
+      - "site:.ar expositores industria textil"
+      - "site:.pe feria textil participantes"
+      - "Febratex expositores 2024 list"
+      - "Colombiatex exhibitors list 2025"
+    associations:
+      - "site:.br associacao textil associados"
+      - "site:.br sindicato industria textil membros"
+      - "site:.co directorio afiliados textil"
+      - "site:.ar camara textil socios"
+      - "site:.pe sociedad nacional industrias textil directorio"
+      - "ABIT associados list"
+    directories:
+      - "site:.br diretorio industrias texteis"
+      - "site:.mx directorio fabricas textiles"
+      - "list of textile finishing mills brazil"
+      - "lista de tintorerias industriales argentina"
+      
+  north_africa:
+    fairs:
+      - "site:.eg textile fair exhibitors list"
+      - "site:.ma salon textile exposants"
+      - "site:.tn foire textile liste des exposants"
+      - "Cairo Fashion Tex list of exhibitors"
+    associations:
+      - "site:.eg textile export council members"
+      - "site:.ma amith membres annuaire"
+      - "site:.tn ftth adherents"
+    directories:
+      - "directory of textile mills egypt"
+      - "annuaire entreprises textile maroc"
+      - "liste des usines textile tunisie"
+
+  turkey:
+    fairs:
+      - "site:.tr tekstil fuarı katılımcı listesi"
+      - "ITM Istanbul exhibitors list"
+      - "IGM Istanbul katılımcı listesi"
+    associations:
+      - "site:.org.tr tekstil derneği üyeleri"
+      - "site:.org.tr üye listesi tekstil"
+      - "TGSD üyeleri"
+    directories:
+      - "site:.tr tekstil firmaları rehberi"
+      - "OSB tekstil firmaları listesi"
+      - "Türkiye tekstil boyahaneleri listesi"
+
+  central_asia:
+    fairs:
+      - "site:.uz textile exhibition exhibitors list"
+      - "CAITME exhibitors list"
+      - "UzTextile Expo exhibitors"
+      - "site:.kz textile exhibition exhibitors list"
+    associations:
+      - "site:.uz textile association members"
+      - "site:.uz to'qimachilik uyushmasi a'zolari"
+      - "site:.kz textile association members list"
+      - "site:.kg textile association members"
+    directories:
+      - "site:.uz textile mills directory"
+      - "site:.kz textile manufacturers directory"
+      - "site:.uz dyeing finishing factory"
+      - "site:.uz boyahane terbiye fabrika"

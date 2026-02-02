@@ -1,0 +1,139 @@
+version: "1.0"
+last_updated: "2026-01-30"
+
+signals:
+  finishing:
+    weight: 3
+    keywords:
+      en:
+        - "textile finishing"
+        - "finishing mill"
+        - "fabric finishing"
+        - "dyehouse"
+        - "dyeing plant"
+        - "dyeing"
+        - "bleaching"
+        - "printing"
+      es:
+        - "acabado textil"
+        - "tintoreria"
+        - "tenido"
+        - "planta de acabado"
+      pt:
+        - "acabamento textil"
+        - "tinturaria"
+        - "beneficiamento textil"
+      de:
+        - "textilveredelung"
+        - "faerberei"
+        - "ausruestung"
+        - "appretur"
+      tr:
+        - "tekstil terbiye"
+        - "boyahane"
+        - "kumas boyama"
+        - "apre"
+
+  stenter:
+    weight: 4
+    keywords:
+      en:
+        - "stenter"
+        - "tenter frame"
+        - "sanfor"
+        - "calender"
+      es:
+        - "rama"
+        - "estiradora"
+        - "sanforizado"
+      pt:
+        - "rama"
+        - "estiradora"
+        - "sanforizadora"
+      de:
+        - "spannrahmen"
+        - "sanfor"
+        - "kalandrier"
+      tr:
+        - "ram makinesi"
+        - "ram"
+        - "sanfor"
+        - "kalandir"
+
+  parts:
+    weight: 3
+    keywords:
+      en:
+        - "spare parts"
+        - "wear parts"
+        - "chain"
+        - "clip"
+        - "pin plate"
+        - "needle bar"
+      es:
+        - "repuestos"
+        - "recambios"
+        - "cadena"
+        - "pinza"
+        - "placa de agujas"
+      pt:
+        - "pecas de reposicao"
+        - "pecas sobressalentes"
+        - "corrente"
+        - "clipe"
+        - "pinca"
+      de:
+        - "ersatzteile"
+        - "verschleissteile"
+        - "kette"
+        - "kluppen"
+        - "nadelkette"
+        - "gleitstein"
+      tr:
+        - "yedek parca"
+        - "zincir"
+        - "kluppen"
+        - "igne"
+        - "igne zinciri"
+
+  facility:
+    weight: 1
+    keywords:
+      en:
+        - "plant"
+        - "factory"
+        - "mill"
+        - "production"
+        - "facility"
+        - "capacity"
+      es:
+        - "planta"
+        - "fabrica"
+        - "capacidad"
+        - "produccion"
+      pt:
+        - "fabrica"
+        - "planta"
+        - "capacidade"
+        - "producao"
+      de:
+        - "werk"
+        - "fabrik"
+        - "produktion"
+        - "kapazitat"
+      tr:
+        - "fabrika"
+        - "tesis"
+        - "kapasite"
+        - "uretim"
+
+negative_signals:
+  - "job"
+  - "career"
+  - "vacancy"
+  - "cv"
+  - "news"
+  - "blog"
+  - "university"
+  - "student"
+  - "academy"

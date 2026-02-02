@@ -1,0 +1,11 @@
+checks for targets_master:
+  - row_count > 0
+  - missing_count(company) = 0
+  - missing_percentage(country) < 30
+  - missing_percentage(website) < 60
+  - missing_percentage(evidence_snippet) < 60
+
+checks for leads_master:
+  - row_count > 0
+  - missing_percentage(company) < 5
+  - missing_percentage(country) < 40

@@ -61,6 +61,12 @@ class ContactEnricher:
             domain = urlparse(base).netloc.lower()
             if not domain:
                 continue
+            parsed_base = urlparse(base)
+            base_root = ""
+            if parsed_base.scheme and parsed_base.netloc:
+                base_root = f"{parsed_base.scheme}://{parsed_base.netloc}"
+            else:
+                base_root = base
             if domain in self._domain_cache:
                 cached = self._domain_cache[domain]
                 emails.update(cached.get("emails", []))
@@ -74,10 +80,14 @@ class ContactEnricher:
                 continue
 
             candidates = [base]
-            for path in paths:
-                candidates.append(urljoin(base.rstrip("/") + "/", path.lstrip("/")))
+            discovered_links = []
             if keywords:
-                candidates.extend(self._find_contact_links(base_html, base, keywords))
+                discovered_links = self._find_contact_links(base_html, base, keywords)
+                candidates.extend(discovered_links)
+
+            if not discovered_links:
+                for path in paths:
+                    candidates.append(urljoin(base_root.rstrip("/") + "/", path.lstrip("/")))
 
             # de-duplicate while preserving order
             seen = set()
@@ -89,10 +99,14 @@ class ContactEnricher:
                 deduped.append(url)
             candidates = deduped
 
-            for url in candidates[:max_pages]:
+            fetched = 0
+            for url in candidates:
+                if fetched >= max_pages:
+                    break
                 html = base_html if url == base else self.client.get(url)
                 if not html:
                     continue
+                fetched += 1
                 text = self._html_to_text(html)
                 found["emails"].update(self.extractor.extract_emails(text))
                 found["phones"].update(self.extractor.extract_phones(text))
@@ -113,6 +127,42 @@ class ContactEnricher:
                         "fetched_at": datetime.utcnow().isoformat(timespec="seconds"),
                     },
                 )
+
+            if discovered_links and fetched < max_pages and not found["emails"] and not found["phones"]:
+                fallback = []
+                for path in paths:
+                    fallback_url = urljoin(base_root.rstrip("/") + "/", path.lstrip("/"))
+                    if fallback_url in seen:
+                        continue
+                    fallback.append(fallback_url)
+                    seen.add(fallback_url)
+                for url in fallback:
+                    if fetched >= max_pages:
+                        break
+                    html = self.client.get(url)
+                    if not html:
+                        continue
+                    fetched += 1
+                    text = self._html_to_text(html)
+                    found["emails"].update(self.extractor.extract_emails(text))
+                    found["phones"].update(self.extractor.extract_phones(text))
+                    found["emails"].update(self._extract_mailto(html))
+                    found["phones"].update(self._extract_tel(html))
+                    found["contact_urls"].add(url)
+
+                    content_hash = save_text_cache(url, text[:5000])
+                    record_evidence(
+                        self.evidence_path,
+                        {
+                            "source_type": "contact_enrichment",
+                            "source_name": lead.get("company", ""),
+                            "url": url,
+                            "title": lead.get("company", ""),
+                            "snippet": text[:400].replace("\n", " ").strip(),
+                            "content_hash": content_hash,
+                            "fetched_at": datetime.utcnow().isoformat(timespec="seconds"),
+                        },
+                    )
 
             self._domain_cache[domain] = {
                 "emails": found["emails"],

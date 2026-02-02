@@ -200,6 +200,119 @@ brazil:
     country: "Brazil"
     notes: "Apex-Brasil's official textile export program - high quality source"
 
+# === Phase 3: LATAM Advanced Discovery ===
+latam_sources:
+  enabled: true
+  rate_limit:
+    delay_between_sources: 2.0  # Seconds between each source
+    delay_between_requests: 1.0  # Seconds between requests within source
+  
+  sources:
+    abit:
+      enabled: true
+      name: "ABIT - Brazil Textile Association"
+      url: "https://www.abit.org.br/associados"
+      country: "Brazil"
+      type: "association_directory"
+      notes: "Associação Brasileira da Indústria Têxtil - primary Brazil source"
+      
+    inexmoda:
+      enabled: true
+      name: "Inexmoda - Colombia Fashion Association"
+      url: "https://www.inexmoda.org.co/afiliados"
+      country: "Colombia"
+      type: "association_directory"
+      notes: "Colombian fashion and textile association - Colombiatex organizer"
+      
+    fita:
+      enabled: true
+      name: "FITA - Argentina Textile Foundation"
+      url: "https://www.fundacionfita.org.ar/empresas-asociadas"
+      country: "Argentina"
+      type: "association_directory"
+      notes: "Fundación Industrial Textil Argentina"
+      
+    comite_textil_sni:
+      enabled: true
+      name: "Comité Textil SNI - Peru"
+      url: "https://www.sni.org.pe/comite-textil/empresas"
+      country: "Peru"
+      type: "association_directory"
+      notes: "Peruvian Textile Committee (National Industries Society)"
+
+# Phase 3: Advanced Discovery - Network Sniffing
+network_sniffing:
+  enabled: true
+  browser_timeout: 30
+  wait_for_idle: true
+  max_network_wait: 10  # Seconds to wait for XHR/Fetch responses
+  
+  sources:
+    gots_directory:
+      enabled: true
+      name: "GOTS Certified Suppliers"
+      url: "https://www.global-trace-base.org"
+      type: "xhr_json"
+      notes: "JavaScript-rendered directory - requires network sniffing"
+      expected_companies: 500
+      
+    oekotex_buying_guide:
+      enabled: false  # Already collected via API in Phase 1
+      name: "OEKO-TEX Buying Guide"
+      url: "https://www.oeko-tex.com/en/apply-here/buying-guide"
+      type: "xhr_json"
+      notes: "Has API endpoint, use direct API instead"
+
+# Phase 3: PDF Extraction for Trade Fairs
+pdf_sources:
+  enabled: true
+  input_dir: "data/inputs"
+  output_dir: "data/staging"
+  
+  fairs:
+    febratex:
+      enabled: true
+      name: "Febratex Brazil"
+      country: "Brazil"
+      pdf_url: "https://febratex.com.br/expositores-2024.pdf"
+      notes: "Download exhibitor PDF manually if available"
+      
+    colombiatex:
+      enabled: true
+      name: "Colombiatex Colombia"
+      country: "Colombia"
+      pdf_url: "https://colombiatex.com/expositores-2024.pdf"
+      notes: "Colombia's largest textile fair"
+      
+    peru_moda:
+      enabled: true
+      name: "Peru Moda"
+      country: "Peru"
+      pdf_url: "https://perumoda.pe/expositores-2024.pdf"
+      notes: "Peru fashion & textile fair"
+
+# === GPT V10.4: South America Collectors ===
+south_america:
+  colombiatex:
+    enabled: true
+    name: "Colombiatex Exhibitors"
+    notes: "Colombia's largest textile fair - Inexmoda"
+    
+  emitex:
+    enabled: true
+    name: "Emitex/Simatex Argentina"
+    notes: "Argentina textile machinery fair + ProTejer/CIAI associations"
+    
+  peru_moda:
+    enabled: true
+    name: "Peru Moda / ADEX / SNI"
+    notes: "Peru textile fair + export associations"
+    
+  itmf_bootstrap:
+    enabled: false
+    name: "ITMF/EURATEX Association Bootstrap"
+    notes: "Global textile associations discovery - set to true for full bootstrap"
+
 # === V5: GÜNEY AMERİKA ÖNCELİKLİ KAYNAKLAR ===
 south_america_priority:
   texbrasil_pagination:
