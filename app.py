@@ -1,10 +1,44 @@
+"""
+LeadIntel Pro V8 - Unified Pipeline
+====================================
+
+Tüm P0/P1/P2 iyileştirmelerini içeren entegre pipeline:
+
+P0 (Kritik):
+- phonenumbers kütüphanesi ile telefon extraction (SVG artifact fix)
+- SSL fallback (HTTPS -> HTTP) + fail_reason tracking
+- Email blocklist filtering (noreply, example.com vb.)
+
+P1 (Bu Hafta):
+- Directory path pattern detection (GOTS, member pages)
+- Enhanced role classification
+
+P2 (Sonraki):
+- Evidence context window capture
+- Proximity scoring (OEM+keyword)
+- Pipeline metrics tracking
+
+Kullanım:
+    python app.py v8                    # Tam V8 pipeline
+    python app.py v8 --limit 50         # Test için 50 lead
+    python app.py v8 --skip-discovery   # Discovery'siz
+    python app.py all                   # Legacy pipeline
+"""
+
 import argparse
+import csv
 import os
+import sys
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import pandas as pd
 import yaml
 from dotenv import load_dotenv
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent))
 
 from src.collectors.bettercotton_members import BetterCottonMembers
 from src.collectors.competitor_harvester import CompetitorHarvester
@@ -44,11 +78,517 @@ from src.processors.scorer import Scorer
 from src.processors.sce_scorer import SCEScorer
 from src.processors.quality_reporter import QualityReporter
 from src.processors.enrichment_queue import EnrichmentQueue
+# V8: Advanced scenting and deep validation
+from src.collectors.brave_scenter import BraveScenter
+from src.processors.deep_validator import DeepValidator, TierExporter
 # GPT V3: Import fix functions
-from gpt_v3_fix import fix_schema, apply_noise_filter, enhanced_role_classify, validate_sce_sales_ready, export_split
+try:
+    from gpt_v3_fix import fix_schema, apply_noise_filter, enhanced_role_classify, validate_sce_sales_ready, export_split
+except ImportError:
+    # Fallback if gpt_v3_fix not available
+    fix_schema = lambda df: df
+    apply_noise_filter = lambda df: (df, pd.DataFrame())
+    enhanced_role_classify = lambda row: row.get("role", "UNKNOWN")
+    validate_sce_sales_ready = lambda row: row.get("sce_sales_ready", False)
+    export_split = lambda df: (df, pd.DataFrame(), pd.DataFrame(), df)
+
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# V8 PIPELINE CLASS
+# =============================================================================
+
+class V8Pipeline:
+    """
+    LeadIntel Pro V8 - Unified Pipeline with all P0/P1/P2 improvements.
+    
+    Features:
+    - 9-phase pipeline: Discovery -> Load -> Dedupe -> Role -> Scenting -> Heuristic -> SCE -> Validation -> Export
+    - phonenumbers library for phone extraction (no SVG artifacts)
+    - SSL fallback with fail_reason tracking
+    - Email blocklist filtering
+    - Directory URL detection
+    - Evidence context windows
+    - Proximity scoring
+    - Multi-source collection
+    - Heuristic + SCE dual scoring
+    - Metrics tracking
+    """
+    
+    def __init__(self, config: Dict = None):
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Load configurations
+        self.targets = load_config("config/targets.yaml")
+        self.scoring_config = load_config("config/scoring.yaml")
+        self.sources_config = load_config("config/sources.yaml")
+        self.settings = load_config("config/settings.yaml")
+        
+        # Default paths
+        self.config = config or {
+            "output_dir": "outputs/crm",
+            "staging_dir": "data/staging",
+            "processed_dir": "data/processed",
+            "cache_dir": "data/cache",
+            "verified_csv": None,
+            "targets_master": "outputs/crm/targets_master.csv",
+        }
+        
+        # Initialize all modules
+        self.scenter = BraveScenter()
+        self.role_classifier = LeadRoleClassifier()
+        self.deep_validator = DeepValidator()
+        self.data_cleaner = DataCleaner()
+        self.deduper = LeadDedupe()
+        self.scorer = Scorer(self.targets, self.scoring_config)
+        self.sce_scorer = SCEScorer()
+        self.exporter = Exporter()
+        
+        # Ensure directories
+        for dir_key in ["output_dir", "staging_dir", "processed_dir", "cache_dir"]:
+            if dir_key in self.config:
+                os.makedirs(self.config[dir_key], exist_ok=True)
+        
+        # Stats
+        self.stats = {
+            "phase": "",
+            "total_leads": 0,
+            "after_dedupe": 0,
+            "after_role_filter": 0,
+            "websites_resolved": 0,
+            "sce_sales_ready": 0,
+            "heuristic_high": 0,
+            "tier_1": 0,
+            "tier_2": 0,
+            "tier_3": 0,
+        }
+    
+    def run(
+        self,
+        discover: bool = True,
+        validate: bool = True,
+        limit: Optional[int] = None,
+        source_file: Optional[str] = None,
+    ) -> str:
+        """
+        Run the complete V8 pipeline.
+        
+        Args:
+            discover: Run bulk discovery phase
+            validate: Run deep validation
+            limit: Limit number of leads to process
+            source_file: Optional source CSV to load leads from
+            
+        Returns:
+            Path to final output file
+        """
+        logger.info("=" * 70)
+        logger.info("🚀 LeadIntel Pro V8 - UNIFIED PIPELINE")
+        logger.info("=" * 70)
+        logger.info(f"Timestamp: {self.timestamp}")
+        logger.info(f"Options: discover={discover}, validate={validate}, limit={limit}")
+        
+        # Phase 1: Bulk Discovery (optional)
+        if discover:
+            self._phase1_bulk_discovery()
+        
+        # Phase 2: Load Leads
+        if source_file:
+            leads = self._load_from_file(source_file)
+        else:
+            leads = self._phase2_load_leads()
+        
+        self.stats["total_leads"] = len(leads)
+        logger.info(f"📊 Loaded {len(leads)} total leads")
+        
+        # Apply limit if specified
+        if limit:
+            leads = leads[:limit]
+            logger.info(f"⚠️ Limited to {len(leads)} leads for testing")
+        
+        # Phase 3: Deduplicate
+        leads = self._phase3_dedupe(leads)
+        self.stats["after_dedupe"] = len(leads)
+        
+        # Phase 4: Role Classification & Noise Filter
+        leads = self._phase4_role_filter(leads)
+        self.stats["after_role_filter"] = len(leads)
+        
+        # Phase 5: Brave Scenting (Website + Evidence)
+        leads = self._phase5_scenting(leads)
+        
+        # Phase 6: Heuristic Scoring
+        leads = self._phase6_heuristic_scoring(leads)
+        
+        # Phase 7: SCE Scoring
+        leads = self._phase7_sce_scoring(leads)
+        
+        # Phase 8: Deep Validation (optional)
+        if validate:
+            leads = self._phase8_deep_validation(leads)
+        
+        # Phase 9: Export
+        output_path = self._phase9_export(leads)
+        
+        # Print summary with P0 metrics
+        self._print_summary()
+        
+        return output_path
+    
+    def _phase1_bulk_discovery(self) -> List[Dict]:
+        """Phase 1: Search for bulk lead sources."""
+        self.stats["phase"] = "bulk_discovery"
+        logger.info("\n" + "-" * 50)
+        logger.info("📁 PHASE 1: BULK DISCOVERY")
+        logger.info("-" * 50)
+        
+        files = self.scenter.phase1_bulk_discovery(region="global")
+        
+        if files:
+            output_path = os.path.join(self.config["staging_dir"], f"discovered_files_{self.timestamp}.csv")
+            pd.DataFrame(files).to_csv(output_path, index=False)
+            logger.info(f"Saved {len(files)} discovered files to {output_path}")
+        
+        return files
+    
+    def _load_from_file(self, filepath: str) -> List[Dict]:
+        """Load leads from a specific file."""
+        logger.info(f"Loading leads from: {filepath}")
+        df = pd.read_csv(filepath)
+        return df.to_dict(orient="records")
+    
+    def _phase2_load_leads(self) -> List[Dict]:
+        """Phase 2: Load leads from all sources."""
+        self.stats["phase"] = "load_leads"
+        logger.info("\n" + "-" * 50)
+        logger.info("📥 PHASE 2: LOAD LEADS")
+        logger.info("-" * 50)
+        
+        all_leads = []
+        
+        # Source 1: Verified customers (gold standard)
+        verified_csv = self.config.get("verified_csv")
+        if verified_csv and os.path.exists(verified_csv):
+            verified_df = pd.read_csv(verified_csv)
+            col_map = {
+                "Şirket Adı": "company",
+                "Ülke": "country",
+                "Neden Onaylı? (Kanıt/Makine)": "evidence_reason",
+            }
+            verified_df = verified_df.rename(columns=col_map)
+            verified_df["source_type"] = "verified_list"
+            verified_df["source"] = "manual_verification"
+            verified_leads = verified_df.to_dict(orient="records")
+            all_leads.extend(verified_leads)
+            logger.info(f"✅ Loaded {len(verified_leads)} verified leads")
+        
+        # Source 2: Pipeline targets_master
+        targets_csv = self.config.get("targets_master")
+        if targets_csv and os.path.exists(targets_csv):
+            targets_df = pd.read_csv(targets_csv)
+            targets_df["source_type"] = "pipeline"
+            targets_leads = targets_df.to_dict(orient="records")
+            all_leads.extend(targets_leads)
+            logger.info(f"📋 Loaded {len(targets_leads)} pipeline leads")
+        
+        # Source 3: Raw staging leads
+        raw_csv = os.path.join(self.config["staging_dir"], "leads_raw.csv")
+        if os.path.exists(raw_csv):
+            raw_df = pd.read_csv(raw_csv)
+            raw_leads = raw_df.to_dict(orient="records")
+            all_leads.extend(raw_leads)
+            logger.info(f"📄 Loaded {len(raw_leads)} raw staging leads")
+        
+        # Source 4: Enriched leads
+        enriched_csv = os.path.join(self.config["staging_dir"], "leads_enriched.csv")
+        if os.path.exists(enriched_csv):
+            try:
+                enriched_df = pd.read_csv(enriched_csv, on_bad_lines='skip')
+                enriched_leads = enriched_df.to_dict(orient="records")
+                all_leads.extend(enriched_leads)
+                logger.info(f"🔍 Loaded {len(enriched_leads)} enriched leads")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not load enriched CSV: {e}")
+        
+        return all_leads
+    
+    def _phase3_dedupe(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 3: Deduplicate leads."""
+        self.stats["phase"] = "dedupe"
+        logger.info("\n" + "-" * 50)
+        logger.info("🔄 PHASE 3: DEDUPLICATION")
+        logger.info("-" * 50)
+        
+        seen = set()
+        unique_leads = []
+        
+        for lead in leads:
+            company = str(lead.get("company", "")).lower().strip()
+            if not company or company in seen:
+                continue
+            seen.add(company)
+            unique_leads.append(lead)
+        
+        logger.info(f"Dedupe: {len(leads)} -> {len(unique_leads)} unique leads")
+        return unique_leads
+    
+    def _phase4_role_filter(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 4: Filter by role (keep customers, drop suppliers)."""
+        self.stats["phase"] = "role_filter"
+        logger.info("\n" + "-" * 50)
+        logger.info("👤 PHASE 4: ROLE CLASSIFICATION")
+        logger.info("-" * 50)
+        
+        filtered = []
+        dropped = []
+        
+        for lead in leads:
+            # Classify role
+            role_result = self.role_classifier.classify(lead)
+            lead["role"] = role_result.role
+            lead["role_confidence"] = role_result.confidence
+            
+            # Check noise filter
+            company = lead.get("company", "")
+            context = lead.get("context", "")
+            is_noise = self.data_cleaner.is_noise(company)
+            is_non_customer = self.data_cleaner.is_non_customer(company, context)
+            
+            # Keep CUSTOMER and UNKNOWN roles
+            if role_result.role in ["CUSTOMER", "UNKNOWN"] and not is_noise and not is_non_customer:
+                filtered.append(lead)
+            else:
+                lead["drop_reason"] = f"role={role_result.role}, noise={is_noise}, non_cust={is_non_customer}"
+                dropped.append(lead)
+        
+        if dropped:
+            dropped_path = os.path.join(self.config["staging_dir"], f"dropped_{self.timestamp}.csv")
+            pd.DataFrame(dropped).to_csv(dropped_path, index=False)
+            logger.info(f"Dropped {len(dropped)} leads (saved to {dropped_path})")
+        
+        logger.info(f"Role filter: {len(leads)} -> {len(filtered)} customers")
+        return filtered
+    
+    def _phase5_scenting(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 5: Brave scenting (website + evidence)."""
+        self.stats["phase"] = "scenting"
+        logger.info("\n" + "-" * 50)
+        logger.info("🔍 PHASE 5: BRAVE SCENTING")
+        logger.info("-" * 50)
+        
+        if not os.environ.get("BRAVE_API_KEY"):
+            logger.warning("⚠️ BRAVE_API_KEY not set - skipping scenting")
+            return leads
+        
+        scented_leads = self.scenter.scent_leads_batch(leads)
+        
+        websites_resolved = sum(1 for l in scented_leads if l.get("website_source") == "brave_navigation")
+        sce_ready = sum(1 for l in scented_leads if l.get("sce_sales_ready"))
+        
+        self.stats["websites_resolved"] = websites_resolved
+        self.stats["sce_sales_ready"] = sce_ready
+        
+        logger.info(f"✅ Scenting complete: {websites_resolved} websites, {sce_ready} SCE ready")
+        
+        return scented_leads
+    
+    def _phase6_heuristic_scoring(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 6: Heuristic keyword-based scoring."""
+        self.stats["phase"] = "heuristic_scoring"
+        logger.info("\n" + "-" * 50)
+        logger.info("📊 PHASE 6: HEURISTIC SCORING")
+        logger.info("-" * 50)
+        
+        scored_leads = []
+        high_score_count = 0
+        
+        for lead in leads:
+            scored = self.scorer.score_lead(lead)
+            scored_leads.append(scored)
+            
+            if scored.get("score", 0) >= 70:
+                high_score_count += 1
+        
+        self.stats["heuristic_high"] = high_score_count
+        logger.info(f"✅ Heuristic scoring complete: {high_score_count} high-score leads (>=70)")
+        
+        return scored_leads
+    
+    def _phase7_sce_scoring(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 7: SCE (Stenter Customer Evidence) scoring."""
+        self.stats["phase"] = "sce_scoring"
+        logger.info("\n" + "-" * 50)
+        logger.info("🎯 PHASE 7: SCE SCORING")
+        logger.info("-" * 50)
+        
+        scored_leads, sce_stats = self.sce_scorer.score_batch(leads)
+        
+        logger.info(f"✅ SCE scoring complete:")
+        logger.info(f"  - Sales Ready: {sce_stats.get('sales_ready', 0)}")
+        logger.info(f"  - High Confidence: {sce_stats.get('high_confidence', 0)}")
+        logger.info(f"  - Medium Confidence: {sce_stats.get('medium_confidence', 0)}")
+        
+        return scored_leads
+    
+    def _phase8_deep_validation(self, leads: List[Dict]) -> List[Dict]:
+        """Phase 8: Deep validation with P0 improvements."""
+        self.stats["phase"] = "deep_validation"
+        logger.info("\n" + "-" * 50)
+        logger.info("🔬 PHASE 8: DEEP VALIDATION (P0 Enhanced)")
+        logger.info("-" * 50)
+        logger.info("  ✓ phonenumbers library (E.164 format)")
+        logger.info("  ✓ SSL fallback (HTTPS -> HTTP)")
+        logger.info("  ✓ Email blocklist filtering")
+        
+        validated_leads = self.deep_validator.validate_batch(leads)
+        
+        self.stats["tier_1"] = sum(1 for l in validated_leads if l.get("tier") == 1)
+        self.stats["tier_2"] = sum(1 for l in validated_leads if l.get("tier") == 2)
+        self.stats["tier_3"] = sum(1 for l in validated_leads if l.get("tier") == 3)
+        
+        logger.info(f"✅ Validation: T1={self.stats['tier_1']}, T2={self.stats['tier_2']}, T3={self.stats['tier_3']}")
+        
+        return validated_leads
+    
+    def _phase9_export(self, leads: List[Dict]) -> str:
+        """Phase 9: Export final leads with multiple formats."""
+        self.stats["phase"] = "export"
+        logger.info("\n" + "-" * 50)
+        logger.info("📤 PHASE 9: EXPORT")
+        logger.info("-" * 50)
+        
+        output_dir = self.config["output_dir"]
+        
+        # Export all leads
+        all_path = os.path.join(output_dir, f"v8_all_{self.timestamp}.csv")
+        df = pd.DataFrame(leads)
+        df.to_csv(all_path, index=False)
+        logger.info(f"📁 Exported all {len(leads)} leads to {all_path}")
+        
+        # Export by tier
+        tier_files = TierExporter.export_by_tier(leads, output_dir, self.timestamp)
+        
+        # Export sales-ready (SCE or Tier 1)
+        sales_ready = [l for l in leads if l.get("sce_sales_ready") or l.get("tier") == 1]
+        if sales_ready:
+            sales_path = os.path.join(output_dir, f"v8_sales_ready_{self.timestamp}.csv")
+            pd.DataFrame(sales_ready).to_csv(sales_path, index=False)
+            logger.info(f"🎯 Exported {len(sales_ready)} sales-ready leads")
+        
+        # Export high-score leads (heuristic >= 70)
+        high_score = [l for l in leads if l.get("score", 0) >= 70]
+        if high_score:
+            hs_path = os.path.join(output_dir, f"v8_high_score_{self.timestamp}.csv")
+            pd.DataFrame(high_score).to_csv(hs_path, index=False)
+            logger.info(f"⭐ Exported {len(high_score)} high-score leads")
+        
+        # Export by region
+        for region in ["Brazil", "Turkey", "Egypt", "Pakistan", "Bangladesh"]:
+            region_leads = [l for l in leads if str(l.get("country", "")).lower() == region.lower()]
+            if region_leads:
+                region_path = os.path.join(output_dir, f"v8_{region.lower()}_{self.timestamp}.csv")
+                pd.DataFrame(region_leads).to_csv(region_path, index=False)
+                logger.info(f"🌍 Exported {len(region_leads)} {region} leads")
+        
+        return all_path
+    
+    def _print_summary(self):
+        """Print pipeline summary with P0 metrics."""
+        logger.info("\n" + "=" * 70)
+        logger.info("📊 V8 PIPELINE SUMMARY")
+        logger.info("=" * 70)
+        
+        total = self.stats['total_leads']
+        after_dedupe = self.stats['after_dedupe']
+        after_filter = self.stats['after_role_filter']
+        tier1 = self.stats['tier_1']
+        tier2 = self.stats['tier_2']
+        tier3 = self.stats['tier_3']
+        heuristic_high = self.stats.get('heuristic_high', 0)
+        
+        logger.info(f"Total leads loaded:     {total}")
+        logger.info(f"After dedupe:           {after_dedupe}")
+        logger.info(f"After role filter:      {after_filter}")
+        logger.info(f"Websites resolved:      {self.stats['websites_resolved']}")
+        logger.info(f"SCE Sales Ready:        {self.stats['sce_sales_ready']}")
+        logger.info(f"Heuristic High (>=70):  {heuristic_high}")
+        logger.info("-" * 50)
+        logger.info(f"Tier 1 (Full):          {tier1}")
+        logger.info(f"Tier 2 (Promising):     {tier2}")
+        logger.info(f"Tier 3 (Research):      {tier3}")
+        logger.info("=" * 70)
+        
+        # P0: Key metrics
+        if after_filter > 0:
+            tier1_rate = (tier1 / after_filter) * 100
+            websites_rate = (self.stats['websites_resolved'] / after_filter) * 100
+            sce_rate = (self.stats['sce_sales_ready'] / after_filter) * 100
+            heuristic_rate = (heuristic_high / after_filter) * 100
+            
+            logger.info("\n📈 KEY METRICS (P0 Tracking):")
+            logger.info(f"  Tier 1 Rate:          {tier1_rate:.1f}%")
+            logger.info(f"  Websites Resolved:    {websites_rate:.1f}%")
+            logger.info(f"  SCE Sales Ready:      {sce_rate:.1f}%")
+            logger.info(f"  Heuristic High:       {heuristic_rate:.1f}%")
+        
+        # Scenter stats
+        scenter_stats = self.scenter.get_stats()
+        logger.info("\n🔍 Brave Scenter Stats:")
+        for key, val in scenter_stats.items():
+            logger.info(f"  {key}: {val}")
+        
+        # Validator stats (includes fail_reasons)
+        validator_stats = self.deep_validator.get_stats()
+        logger.info("\n🔬 Deep Validator Stats:")
+        for key, val in validator_stats.items():
+            if key == "fail_reasons" and isinstance(val, dict):
+                logger.info(f"  {key}:")
+                for reason, count in sorted(val.items(), key=lambda x: -x[1]):
+                    logger.info(f"    - {reason}: {count}")
+            else:
+                logger.info(f"  {key}: {val}")
+        
+        # Save metrics
+        self._save_metrics()
+    
+    def _save_metrics(self):
+        """Save run metrics to CSV for tracking."""
+        metrics_file = os.path.join(self.config["output_dir"], "pipeline_metrics.csv")
+        
+        total = self.stats['total_leads']
+        after_filter = self.stats['after_role_filter']
+        tier1 = self.stats['tier_1']
+        
+        metrics = {
+            "timestamp": self.timestamp,
+            "total_leads": total,
+            "after_dedupe": self.stats['after_dedupe'],
+            "after_role_filter": after_filter,
+            "websites_resolved": self.stats['websites_resolved'],
+            "sce_sales_ready": self.stats['sce_sales_ready'],
+            "tier_1": tier1,
+            "tier_2": self.stats['tier_2'],
+            "tier_3": self.stats['tier_3'],
+            "tier_1_rate": f"{(tier1 / after_filter * 100):.1f}" if after_filter > 0 else "0",
+            "websites_rate": f"{(self.stats['websites_resolved'] / after_filter * 100):.1f}" if after_filter > 0 else "0",
+        }
+        
+        file_exists = os.path.exists(metrics_file)
+        with open(metrics_file, "a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=metrics.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(metrics)
+        
+        logger.info(f"\n📈 Metrics saved to {metrics_file}")
+
+
+# =============================================================================
+# LEGACY FUNCTIONS (backward compatibility)
+# =============================================================================
 
 def load_config(path):
     if not os.path.exists(path):
@@ -856,16 +1396,50 @@ def trade_rank(targets, settings):
         )
 
 def main():
-    parser = argparse.ArgumentParser(description="Lead Intelligence Pipeline v2 - Skill Based")
+    parser = argparse.ArgumentParser(
+        description="LeadIntel Pro - Unified Pipeline",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+V8 Pipeline (Recommended):
+    python app.py v8                    # Full V8 pipeline with all improvements
+    python app.py v8 --limit 50         # Test with 50 leads
+    python app.py v8 --skip-discovery   # Skip bulk discovery phase
+    python app.py v8 --skip-validation  # Skip deep validation phase
+    python app.py v8 --source FILE.csv  # Load leads from specific file
+
+Legacy Pipeline:
+    python app.py all                   # Run all legacy stages
+    python app.py harvest               # Only harvest stage
+    python app.py dedupe                # Only dedupe stage
+        """
+    )
     parser.add_argument(
         "stage",
-        choices=["discover", "harvest", "enrich", "dedupe", "brave", "phase3", "score", "trade-rank", "ui", "all"],
-        help="Pipeline stage to run",
+        choices=["v8", "discover", "harvest", "enrich", "dedupe", "brave", "phase3", "score", "trade-rank", "ui", "all"],
+        help="Pipeline stage to run (v8 = new unified pipeline)",
     )
+    parser.add_argument("--limit", type=int, help="Limit number of leads to process")
+    parser.add_argument("--skip-discovery", action="store_true", help="Skip bulk discovery phase")
+    parser.add_argument("--skip-validation", action="store_true", help="Skip deep validation phase")
+    parser.add_argument("--source", type=str, help="Source CSV file to load leads from")
     
     args = parser.parse_args()
 
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+    
+    # V8 Pipeline (new unified approach)
+    if args.stage == "v8":
+        pipeline = V8Pipeline()
+        output = pipeline.run(
+            discover=not args.skip_discovery,
+            validate=not args.skip_validation,
+            limit=args.limit,
+            source_file=args.source,
+        )
+        logger.info(f"\n🎉 V8 Pipeline complete! Output: {output}")
+        return
+    
+    # Legacy pipeline stages
     targets = load_config("config/targets.yaml")
     competitors = load_config("config/competitors.yaml")
     settings = load_config("config/settings.yaml")

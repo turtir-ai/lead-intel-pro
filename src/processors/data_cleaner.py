@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 class DataCleaner:
     """
     Filters noise and validates entity data
+    Enhanced with stricter noise filters based on GPT audit recommendations.
     """
     
     # Noise patterns - companies that aren't real businesses
@@ -23,22 +24,60 @@ class DataCleaner:
         "association", "council", "federation", "chamber"
     ]
     
+    # GPT Audit: Non-customer entity types to filter
+    # These are NOT stenter customers - they don't have finishing lines
+    NON_CUSTOMER_INDICATORS = [
+        # Labels/Packaging (not fabric finishing)
+        "labels", "label", "labeling", "packaging", "etiket",
+        # Plastic/Fiber (different machinery)
+        "plastic", "plastics", "fiber industry", "synthetic fiber",
+        # Garment-only (no dyehouse, just cutting/sewing)
+        # Note: "garment" alone isn't filtered if combined with "dyeing"
+        # Software/Consulting
+        "software", "consulting", "consultant", "erp", "mes",
+        # Machinery suppliers (competitors, not customers)
+        "machinery supplier", "machine supplier", "spare parts",
+        "machinery dealer", "equipment dealer", "parts supplier",
+        # Organizations (not businesses)
+        "university", "institute", "research center", "academy",
+        "government", "ministry", "directorate", "council",
+        # Rugs/Carpets (different machinery, not stenter)
+        "rug", "rugs", "carpet backing",
+    ]
+    
     # Association/Fair domains to block
     DOMAIN_BLOCKLIST = [
+        # Certification databases (NOT company sites)
         "global-trace-base.org",
-        "oeko-tex.com", 
+        "oeko-tex.com",
+        "services.oeko-tex.com",
+        "gots.org",
+        "bettercotton.org",
+        "wrap.org",
+        # Trade associations
         "abit.org.br",
         "texbrasil.com.br",
+        "febratex.com.br",
+        "itmf.org",
+        # Social media
         "instagram.com",
         "facebook.com",
         "linkedin.com",
-        "febratex.com.br",
+        "youtube.com",
+        "twitter.com",
+        # B2B marketplaces
         "indiamart.com",
         "alibaba.com",
         "made-in-china.com",
         "tradekey.com",
+        "globalsources.com",
+        # Business directories
         "wikipedia.org",
-        "youtube.com"
+        "emis.com",
+        "dnb.com",
+        "kompass.com",
+        "europages.com",
+        "zoominfo.com",
     ]
     
     # Generic terms that shouldn't be company names alone
@@ -108,6 +147,36 @@ class DataCleaner:
         if len(name_lower) < 5 and not re.search(r'\w+\s+(ltd|inc|llc|gmbh|sa|srl)', name_lower):
             logger.debug(f"Noise: Too short without suffix '{company_name}'")
             return True
+        
+        return False
+    
+    def is_non_customer(self, company_name: str, context: str = "") -> bool:
+        """
+        GPT Audit: Check if entity is NOT a stenter customer.
+        
+        Filters out:
+        - Labels/Packaging companies
+        - Plastic/Fiber producers
+        - Software companies
+        - Machinery suppliers
+        - Organizations
+        
+        Args:
+            company_name: Company name
+            context: Additional context (description, source)
+            
+        Returns:
+            True if NOT a customer, False if potentially valid customer
+        """
+        text = f"{company_name} {context}".lower()
+        
+        for indicator in self.NON_CUSTOMER_INDICATORS:
+            if indicator in text:
+                # Exception: "garment" is OK if combined with dyeing/finishing
+                if indicator == "garment" and any(x in text for x in ["dyeing", "finishing", "boyama", "terbiye", "tinturaria"]):
+                    continue
+                logger.debug(f"Non-customer indicator '{indicator}' found in: {company_name}")
+                return True
         
         return False
     
