@@ -48,6 +48,14 @@ certifi>=2023.0.0
 # Async Support
 asyncio-throttle>=1.0.0
 
+# V10 NLP Stack (MacBook Pro 2012 compatible - no AVX2 required)
+flashtext>=2.7  # O(n) keyword matching, CPU-friendly
+langdetect>=1.0.9  # Language detection
+
+# V10 Optional ML (lightweight, CPU-only)
+scikit-learn>=1.0  # SGDClassifier for lead scoring
+# Note: No transformers/LLMs - 2012 hardware constraint
+
 # Optional: For Splink probabilistic dedupe (future)
 # splink>=3.9.0
 pandera>=0.18.0

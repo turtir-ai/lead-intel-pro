@@ -750,3 +750,248 @@ dom_patterns:
         company: ".company, .name"
         certificate: ".cert-type, .certification"
         valid_until: ".valid, .expiry"
+
+# =============================================================================
+# V10: ÇOK DİLLİ ANAHTAR KELİME SETLERİ
+# =============================================================================
+
+multilingual_keywords:
+  # Türkçe (TR)
+  turkish:
+    finishing_keywords:
+      - "ramöz"
+      - "stenter"
+      - "boyahane"
+      - "terbiye"
+      - "apre"
+      - "boya tesisi"
+      - "boyama"
+      - "germe makinesi"
+      - "kurutma makinesi"
+      - "fikse makinesi"
+      - "sanfor"
+      - "kasar"
+      - "merser"
+    machine_brands:
+      - "brückner"
+      - "monforts"
+      - "krantz"
+      - "artos"
+      - "santex"
+      - "babcock"
+    decision_maker_titles:
+      - "bakım müdürü"
+      - "teknik satınalma müdürü"
+      - "üretim müdürü"
+      - "genel müdür"
+      - "satınalma direktörü"
+      - "proje müdürü"
+      - "fabrika müdürü"
+
+  # Vietnamca (VI)
+  vietnamese:
+    finishing_keywords:
+      - "nhà máy nhuộm"
+      - "hoàn tất vải"
+      - "công ty dệt may"
+      - "khu công nghiệp dệt may"
+      - "nhập khẩu máy dệt"
+      - "phụ tùng máy dệt"
+      - "máy sấy vải"
+      - "máy stenter"
+      - "xử lý hoàn tất"
+      - "in vải"
+    decision_maker_titles:
+      - "trưởng phòng bảo trì"
+      - "giám đốc mua hàng"
+      - "giám đốc sản xuất"
+      - "trưởng phòng kỹ thuật"
+
+  # Rusça (RU) - Orta Asya için
+  russian:
+    finishing_keywords:
+      - "текстильная промышленность"
+      - "красильная фабрика"
+      - "швейная фабрика"
+      - "хлопчатобумажная промышленность"
+      - "производство текстиля"
+      - "импорт текстильного оборудования"
+      - "стент-машина"
+      - "запчасти для текстильного оборудования"
+      - "отделка ткани"
+      - "сушильная машина"
+    decision_maker_titles:
+      - "директор по техническому обслуживанию"
+      - "менеджер по закупкам"
+      - "технический директор"
+      - "директор производства"
+
+  # Arapça (AR) - Kuzey Afrika için
+  arabic:
+    finishing_keywords:
+      - "صناعة النسيج"
+      - "مصانع الصباغة"
+      - "الملابس الجاهزة"
+      - "آلات النسيج"
+      - "قطع غيار الآلات"
+      - "الغزل والنسيج"
+      - "صناعة الملابس"
+      - "تجهيز الأقمشة"
+      - "آلة ستنتر"
+    decision_maker_titles:
+      - "مدير الصيانة"
+      - "مدير المشتريات"
+      - "مدير الإنتاج"
+
+  # Fransızca (FR) - Kuzey Afrika için
+  french:
+    finishing_keywords:
+      - "industrie textile"
+      - "usine de teinture"
+      - "textile et habillement"
+      - "machines textiles"
+      - "pièces détachées"
+      - "filature et tissage"
+      - "finition textile"
+      - "machine stenter"
+      - "séchoir textile"
+    decision_maker_titles:
+      - "directeur de maintenance"
+      - "directeur des achats"
+      - "directeur de production"
+      - "responsable technique"
+
+  # Portekizce (PT) - Brezilya için
+  portuguese:
+    finishing_keywords:
+      - "tinturaria"
+      - "acabamentos têxteis"
+      - "indústria têxtil"
+      - "fábrica de tecidos"
+      - "máquina de estampar"
+      - "peças de reposição"
+      - "secador de tecido"
+      - "máquina stenter"
+      - "beneficiamento têxtil"
+      - "rama"
+      - "alvejamento"
+    decision_maker_titles:
+      - "gerente de manutenção"
+      - "diretor de compras"
+      - "gerente de produção"
+      - "diretor industrial"
+
+  # İspanyolca (ES) - LATAM için
+  spanish:
+    finishing_keywords:
+      - "tintorería"
+      - "acabados textiles"
+      - "industria textil"
+      - "fábrica de tejidos"
+      - "máquina de teñir"
+      - "repuestos"
+      - "secadora de tela"
+      - "máquina stenter"
+      - "rama"
+      - "blanqueo"
+      - "teñido"
+    decision_maker_titles:
+      - "gerente de mantenimiento"
+      - "director de compras"
+      - "gerente de producción"
+      - "jefe de planta"
+
+  # İngilizce (EN) - Global
+  english:
+    finishing_keywords:
+      - "stenter"
+      - "stentering"
+      - "tenter frame"
+      - "heat setting"
+      - "finishing"
+      - "dyeing"
+      - "mercerizing"
+      - "sanforizing"
+      - "calendering"
+      - "textile mill"
+      - "dyehouse"
+      - "finishing plant"
+    decision_maker_titles:
+      - "maintenance manager"
+      - "procurement director"
+      - "production manager"
+      - "plant manager"
+      - "technical director"
+      - "purchasing manager"
+
+# =============================================================================
+# V10: HEDEF MAKİNE MARKALARI VE BÖLGESEL DAĞILIM
+# =============================================================================
+
+target_machine_brands:
+  tier1_brands:
+    - brand: "brückner"
+      aliases: ["bruckner", "brueckner"]
+      origin: "Germany"
+      specialty: "Stenter/Ramömat"
+      regional_penetration:
+        turkey: 420
+        vietnam: 180
+        central_asia: 90
+        north_africa: 60
+        south_america: 110
+        
+    - brand: "monforts"
+      aliases: ["monforts textilmaschinen"]
+      origin: "Germany"
+      specialty: "Dry cleaning, heavy fabrics"
+      regional_penetration:
+        turkey: 280
+        vietnam: 120
+        central_asia: 50
+        north_africa: 40
+        south_america: 80
+        
+    - brand: "krantz"
+      aliases: []
+      origin: "Germany"
+      specialty: "Energy efficient systems"
+      regional_penetration:
+        turkey: 150
+        vietnam: 80
+        central_asia: 30
+        north_africa: 25
+        south_america: 50
+        
+  tier2_brands:
+    - brand: "artos"
+      aliases: []
+      origin: "Germany/USA"
+      specialty: "Cone drying, knit fabrics"
+      regional_penetration:
+        turkey: 200
+        vietnam: 90
+        central_asia: 40
+        north_africa: 20
+        south_america: 60
+        
+    - brand: "santex"
+      aliases: ["santex rimar"]
+      origin: "Italy"
+      specialty: "Knit finishing"
+      regional_penetration:
+        turkey: 160
+        vietnam: 70
+        central_asia: 35
+        north_africa: 30
+        south_america: 45
+        
+    - brand: "babcock"
+      aliases: []
+      origin: "Germany"
+      specialty: "Industrial dryers"
+      
+    - brand: "goller"
+      aliases: []
+      origin: "Germany"
+      specialty: "Continuous bleaching"

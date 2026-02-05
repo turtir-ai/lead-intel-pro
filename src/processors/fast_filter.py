@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""
+FastFilter - Reject-fast heuristic
+Filters out obvious non-targets before expensive processing.
+"""
+
+from typing import Dict, List, Tuple
+from urllib.parse import urlparse
+
+
+class FastFilter:
+    """Pahalı işlemlerden önce hızlı eleme."""
+
+    DOMAIN_BLACKLIST = {
+        ".org", ".gov", ".edu", ".mil",
+        "amazon.", "alibaba.", "aliexpress.", "ebay.",
+        "facebook.", "linkedin.", "twitter.", "instagram.",
+        "youtube.", "wikipedia.", "medium.",
+        "news", "magazine", "journal", "press",
+        "blog", "wordpress", ".blogspot.",
+        "event", "fair", "exhibition", "expo", "congress",
+        "directory", "portal", "listing", "yellowpages",
+        "government", "ministry", "university", "school",
+    }
+
+    PATH_BLACKLIST = [
+        "/members/", "/member-list/", "/directory/",
+        "/exhibitors/", "/participants/", "/listing/",
+        "/category/", "/tag/", "/search/",
+        "/news/", "/blog/", "/article/",
+        "/event/", "/fair/", "/exhibition/",
+    ]
+
+    META_BLACKLIST = [
+        "news portal", "magazine", "blog",
+        "directory", "listing", "member list",
+        "exhibition", "trade fair",
+    ]
+
+    def should_reject(self, url: str, meta_description: str = "") -> Tuple[bool, str]:
+        """Return (True, reason) if the lead should be rejected early."""
+        if not isinstance(url, str):
+            url = ""
+        if not isinstance(meta_description, str):
+            meta_description = ""
+        url_lower = (url or "").lower()
+        meta_lower = (meta_description or "").lower()
+
+        # Domain blacklist
+        for blacklisted in self.DOMAIN_BLACKLIST:
+            if blacklisted in url_lower:
+                return True, f"domain_blacklist:{blacklisted}"
+
+        # Path blacklist
+        try:
+            path = urlparse(url_lower).path or ""
+        except Exception:
+            path = ""
+        for pattern in self.PATH_BLACKLIST:
+            if pattern in path:
+                return True, f"path_blacklist:{pattern}"
+
+        # Meta description blacklist
+        for pattern in self.META_BLACKLIST:
+            if pattern in meta_lower:
+                return True, f"meta_blacklist:{pattern}"
+
+        return False, ""
+
+    def filter_batch(self, leads: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+        """Return (passed, rejected) lists."""
+        passed = []
+        rejected = []
+        for lead in leads:
+            url = lead.get("website", "") or lead.get("source_url", "")
+            meta = lead.get("meta_description", "")
+            should_reject, reason = self.should_reject(url, meta)
+            if should_reject:
+                lead["reject_reason"] = reason
+                lead["reject_phase"] = "fast_filter"
+                rejected.append(lead)
+            else:
+                passed.append(lead)
+        return passed, rejected

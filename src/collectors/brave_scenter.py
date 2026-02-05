@@ -244,7 +244,8 @@ class BraveScenter:
                 seen_urls.add(url)
                 
                 # Check if it's a downloadable file
-                if any(ext in url.lower() for ext in [".pdf", ".xlsx", ".xls", ".csv"]):
+                url_str = url if isinstance(url, str) else ""
+                if any(ext in url_str.lower() for ext in [".pdf", ".xlsx", ".xls", ".csv"]):
                     found_files.append({
                         "url": url,
                         "title": result.get("title", ""),
@@ -260,6 +261,8 @@ class BraveScenter:
     
     def _detect_file_type(self, url: str) -> str:
         """Detect file type from URL."""
+        if not isinstance(url, str):
+            return "unknown"
         url_lower = url.lower()
         if ".pdf" in url_lower:
             return "pdf"
@@ -286,6 +289,14 @@ class BraveScenter:
         
         Uses navigation queries to find real domain.
         """
+        # Guard against NaN values
+        if not isinstance(company, str):
+            company = str(company) if company else ""
+        if not isinstance(country, str):
+            country = str(country) if country else ""
+        if not isinstance(current_url, str):
+            current_url = ""
+        
         # Check if current URL is already a real website
         if current_url and not self._is_directory_url(current_url):
             return {"website": current_url, "source": "existing", "confidence": "high"}
@@ -325,8 +336,10 @@ class BraveScenter:
                     continue
                 
                 # Check if domain seems related to company name
-                company_parts = company.lower().split()[:2]
-                domain_lower = domain.lower()
+                company_str = company if isinstance(company, str) else ""
+                domain_str = domain if isinstance(domain, str) else ""
+                company_parts = company_str.lower().split()[:2]
+                domain_lower = domain_str.lower()
                 
                 # Match if any significant company word appears in domain
                 for part in company_parts:
@@ -347,6 +360,9 @@ class BraveScenter:
         Check if URL is a directory/aggregator site.
         P1: Enhanced with path pattern detection.
         """
+        # Guard against NaN/None/non-string values
+        if not url or not isinstance(url, str):
+            return False
         url_lower = url.lower()
         
         # Check blocked domains
@@ -379,6 +395,12 @@ class BraveScenter:
         
         Returns evidence dict with signals and confidence.
         """
+        # Guard against NaN values
+        if not isinstance(website, str):
+            website = ""
+        if not isinstance(company, str):
+            company = str(company) if company else ""
+        
         evidence = {
             "has_oem_evidence": False,
             "has_stenter_evidence": False,
@@ -440,6 +462,10 @@ class BraveScenter:
         if not snippet:
             return
         
+        # Guard against NaN values
+        if not isinstance(snippet, str):
+            snippet = str(snippet) if snippet else ""
+        
         snippet_lower = snippet.lower()
         
         # Check OEM brands
@@ -479,6 +505,12 @@ class BraveScenter:
         P2: Extract context window around a matched term.
         Returns ~300 chars centered on the term.
         """
+        # Guard against NaN values
+        if not isinstance(text, str):
+            text = str(text) if text else ""
+        if not isinstance(term, str):
+            term = str(term) if term else ""
+        
         text_lower = text.lower()
         term_lower = term.lower()
         
@@ -530,8 +562,10 @@ class BraveScenter:
             # Check if any OEM brand appears near a stenter keyword
             for oem_ctx in oem_contexts:
                 for kw_ctx in kw_contexts:
+                    # Guard against NaN values
+                    oem_ctx_str = oem_ctx if isinstance(oem_ctx, str) else ""
                     # If contexts overlap or are from same snippet
-                    if any(kw in oem_ctx.lower() for kw in evidence["stenter_signals"]):
+                    if any(kw in oem_ctx_str.lower() for kw in evidence["stenter_signals"]):
                         score += 0.1  # Proximity bonus
                         break
         
@@ -554,6 +588,12 @@ class BraveScenter:
         country = lead.get("country", "")
         website = lead.get("website", "")
         
+        # Guard against NaN values from pandas
+        if not isinstance(website, str):
+            website = ""
+        if not isinstance(company, str):
+            company = str(company) if company else ""
+        
         if not company:
             return lead
         
@@ -565,10 +605,15 @@ class BraveScenter:
                 lead["website_source"] = resolved.get("source", "")
                 lead["website_confidence"] = resolved.get("confidence", "")
         
+        # Get website for Phase 3 (guard against NaN)
+        current_website = lead.get("website", "")
+        if not isinstance(current_website, str):
+            current_website = ""
+        
         # Phase 3: Find evidence
         evidence = self.phase3_find_evidence(
             company=company,
-            website=lead.get("website", ""),
+            website=current_website,
             country=country,
         )
         

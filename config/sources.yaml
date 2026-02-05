@@ -45,6 +45,18 @@ discovery:
     - type: "directories"
       query: "site:.ar asociacion textil socios"
 
+# V9: Source quality tiers (Sniper budget allocation)
+source_quality_tiers:
+  oem_reference: "S"
+  job_posting: "S"
+  trade_import: "S"
+  pdf_exhibitor: "A"
+  fair_exhibitor: "A"
+  gots: "A"
+  oekotex: "A"
+  directory: "B"
+  brave_search: "B"
+
 competitor_websearch:
   enabled: true
   max_results: 8
@@ -534,3 +546,210 @@ oem_references:
     enabled: true
     oem_brand: "Santex"
     tags: ["oem", "reference"]
+
+# =============================================================================
+# V10: BÖLGESEL VERİ KAYNAKLARI MATRİSİ
+# =============================================================================
+
+regional_data_matrix:
+  turkey:
+    priority: 1
+    primary_sources:
+      - id: tuik
+        name: "TÜİK İstatistik"
+        url: "tuik.gov.tr"
+        type: "official_stats"
+        data: ["customs", "production"]
+        update: "monthly"
+        reliability: "very_high"
+      - id: tara
+        name: "Ticaret Bakanlığı TARA"
+        url: "uygulama.gtb.gov.tr/TARA"
+        type: "customs"
+        data: ["gtip_import", "gtip_export"]
+        update: "weekly"
+        reliability: "very_high"
+      - id: tgsd
+        name: "Türkiye Giyim Sanayicileri Derneği"
+        url: "tgsd.org.tr"
+        type: "association"
+        data: ["member_directory"]
+        update: "quarterly"
+        reliability: "high"
+      - id: itkib
+        name: "İstanbul Tekstil İhracatçıları"
+        url: "itkib.org.tr"
+        type: "export_union"
+        data: ["exporter_list"]
+        update: "monthly"
+        reliability: "high"
+      - id: iso500
+        name: "İSO 500"
+        url: "iso.org.tr"
+        type: "industry_ranking"
+        data: ["top_companies"]
+        update: "yearly"
+        reliability: "very_high"
+    keywords:
+      - "stenter yedek parça"
+      - "ramöz makine"
+      - "tekstil terbiye makinesi"
+      - "brückner servis"
+      - "boyahane"
+      - "terbiye tesisi"
+
+  vietnam:
+    priority: 1
+    primary_sources:
+      - id: vitas
+        name: "Vietnam Textile Association"
+        url: "vietnamtextile.org.vn"
+        type: "association"
+        data: ["member_directory"]
+        members: 2000
+        update: "quarterly"
+        reliability: "very_high"
+      - id: vcosa
+        name: "Vietnam Cotton Spinning Association"
+        url: "vcosa.vn"
+        type: "association"
+        data: ["members"]
+        update: "quarterly"
+        reliability: "high"
+      - id: vinatex
+        name: "Vinatex Holding"
+        url: "vinatex.com"
+        type: "holding"
+        data: ["subsidiaries"]
+        update: "monthly"
+        reliability: "very_high"
+      - id: aurora_ip
+        name: "Aurora Industrial Park"
+        url: "rangdongip.vn"
+        type: "industrial_park"
+        data: ["tenants"]
+        update: "weekly"
+        reliability: "high"
+    keywords:
+      - "nhà máy nhuộm"
+      - "hoàn tất vải"
+      - "công ty dệt may"
+      - "khu công nghiệp dệt may"
+      - "máy stenter"
+      - "phụ tùng máy dệt"
+
+  central_asia:
+    priority: 3
+    primary_sources:
+      - id: uztekstilsanoat
+        name: "O'ztekstilsanoat"
+        url: "uzts.uz"
+        type: "association"
+        data: ["member_list", "cluster_data"]
+        update: "quarterly"
+        reliability: "very_high"
+      - id: uzstat
+        name: "UzStat"
+        url: "stat.uz"
+        type: "official_stats"
+        data: ["production", "export"]
+        update: "monthly"
+        reliability: "very_high"
+      - id: giz_reports
+        name: "GIZ Textile Reports"
+        url: "giz.de"
+        type: "report"
+        data: ["sector_analysis"]
+        update: "biannual"
+        reliability: "high"
+    keywords:
+      - "текстильная промышленность"
+      - "красильная фабрика"
+      - "швейная фабрика"
+      - "хлопчатобумажная промышленность"
+      - "стент-машина"
+      - "запчасти для текстильного оборудования"
+
+  north_africa:
+    priority: 2
+    primary_sources:
+      - id: goeic
+        name: "GOEIC Egypt"
+        url: "goeic.gov.eg"
+        type: "official"
+        country: "Egypt"
+        data: ["export_import"]
+        update: "monthly"
+        reliability: "very_high"
+      - id: amith
+        name: "AMITH Morocco"
+        url: "amith.ma"
+        type: "association"
+        country: "Morocco"
+        data: ["member_directory"]
+        members: 1600
+        update: "quarterly"
+        reliability: "very_high"
+      - id: ftth
+        name: "FTTH Tunisia"
+        url: "ftt.tn"
+        type: "association"
+        country: "Tunisia"
+        data: ["members"]
+        update: "quarterly"
+        reliability: "high"
+    keywords_arabic:
+      - "صناعة النسيج"
+      - "مصانع الصباغة"
+      - "الملابس الجاهزة"
+      - "آلات النسيج"
+      - "قطع غيار الآلات"
+    keywords_french:
+      - "industrie textile"
+      - "usine de teinture"
+      - "textile et habillement"
+      - "machines textiles"
+      - "pièces détachées"
+
+  south_america:
+    priority: 2
+    primary_sources:
+      - id: abit
+        name: "ABIT Brazil"
+        url: "abit.org.br"
+        type: "association"
+        country: "Brazil"
+        data: ["member_directory"]
+        members: 25200
+        update: "continuous"
+        reliability: "very_high"
+      - id: comex_stat
+        name: "Comex Stat Brazil"
+        url: "comexstat.mdic.gov.br"
+        type: "customs"
+        country: "Brazil"
+        data: ["import_export"]
+        update: "weekly"
+        reliability: "very_high"
+      - id: inexmoda
+        name: "Inexmoda Colombia"
+        url: "inexmoda.org.co"
+        type: "association"
+        country: "Colombia"
+        data: ["members", "fair_exhibitors"]
+        update: "quarterly"
+        reliability: "very_high"
+    keywords_portuguese:
+      - "tinturaria"
+      - "acabamentos têxteis"
+      - "indústria têxtil"
+      - "fábrica de tecidos"
+      - "máquina stenter"
+      - "peças de reposição"
+    keywords_spanish:
+      - "tintorería"
+      - "acabados textiles"
+      - "industria textil"
+      - "fábrica de tejidos"
+      - "máquina stenter"
+      - "repuestos"

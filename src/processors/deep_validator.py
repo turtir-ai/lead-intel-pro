@@ -14,17 +14,27 @@ Bu modül her lead'i derinlemesine doğrular ve satışa hazır hale getirir.
 import os
 import re
 import time
+import warnings
 import requests
 import phonenumbers
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
 from bs4 import BeautifulSoup
 
+# Suppress SSL warnings since we're using verify=False for speed
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
+
 from src.utils.logger import get_logger
 from src.utils.http_client import HttpClient
 
 logger = get_logger(__name__)
+
+# Thread pool for hard timeouts
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 # P0 Fix: Email blocklist for quality filtering
@@ -91,10 +101,12 @@ class DeepValidator:
         http_client: Optional[HttpClient] = None,
         max_pages_per_site: int = 5,
         timeout: int = 10,
+        max_lead_seconds: int = 60,
     ):
         self.http = http_client or HttpClient()
         self.max_pages = max_pages_per_site
         self.timeout = timeout
+        self.max_lead_seconds = max_lead_seconds
         
         # Stats
         self.stats = {
@@ -118,7 +130,14 @@ class DeepValidator:
         company = lead.get("company", "")
         website = lead.get("website", "")
         
+        # Guard against NaN values from pandas
+        if not isinstance(website, str):
+            website = ""
+        if not isinstance(company, str):
+            company = str(company) if company else ""
+        
         self.stats["total_validated"] += 1
+        start_ts = time.monotonic()
         
         result = {
             "validation_status": "pending",
@@ -161,6 +180,11 @@ class DeepValidator:
         # Step 3: Find and scan additional pages
         additional_pages = self._find_key_pages(website, homepage_html)
         for page_url in additional_pages[:self.max_pages - 1]:
+            if time.monotonic() - start_ts > self.max_lead_seconds:
+                result["validation_status"] = "lead_timeout"
+                result["fail_reason"] = "lead_timeout"
+                lead.update(result)
+                return lead
             page_html = self._fetch_page(page_url)
             if page_html:
                 all_text += " " + page_html
@@ -214,25 +238,29 @@ class DeepValidator:
         Returns:
             (is_accessible, html_content, fail_reason)
         """
+        # Guard against NaN values
+        if not url or not isinstance(url, str):
+            return False, "", "invalid_url"
+        
         original_url = url
         
         # Ensure URL has scheme
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
         
-        # Try HTTPS first
+        # Try HTTPS first, then HTTP fallback
         for attempt_url in [url, url.replace("https://", "http://")]:
             try:
                 response = requests.get(
                     attempt_url,
-                    timeout=self.timeout,
+                    timeout=(3, 10),  # Aggressive: 3s connect, 10s read (was 5, self.timeout)
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                         "Accept-Language": "en-US,en;q=0.5",
                     },
                     allow_redirects=True,
-                    verify=True,  # SSL verification
+                    verify=False,  # Skip SSL for speed - we're scanning content not transacting
                 )
                 
                 if response.status_code == 200:
@@ -278,20 +306,26 @@ class DeepValidator:
         return False, "", "all_attempts_failed"
     
     def _fetch_page(self, url: str) -> Optional[str]:
-        """Fetch a single page."""
+        """Fetch a single page with strict timeout."""
         try:
             response = requests.get(
                 url,
-                timeout=self.timeout,
+                timeout=(3, 8),  # Aggressive: 3s connect, 8s read (was 5, 10)
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                 },
-                verify=True,
+                verify=False,  # Skip SSL verification for speed - we're just scanning content
+                allow_redirects=True,
             )
             if response.status_code == 200:
-                return response.text
-        except Exception:
-            pass
+                # Limit content size to prevent memory issues
+                return response.text[:500000]  # Max 500KB
+        except requests.exceptions.Timeout:
+            logger.debug(f"Page fetch timeout: {url}")
+        except requests.exceptions.SSLError:
+            logger.debug(f"Page fetch SSL error: {url}")
+        except Exception as e:
+            logger.debug(f"Page fetch error: {url} - {e}")
         return None
     
     def _find_key_pages(self, base_url: str, html: str) -> List[str]:
@@ -323,6 +357,8 @@ class DeepValidator:
     
     def _extract_finishing_signals(self, text: str) -> List[str]:
         """Extract finishing/stenter keywords from text."""
+        if not isinstance(text, str):
+            return []
         signals = []
         text_lower = text.lower()
         
@@ -335,6 +371,8 @@ class DeepValidator:
     
     def _extract_oem_signals(self, text: str) -> List[str]:
         """Extract OEM brand mentions from text."""
+        if not isinstance(text, str):
+            return []
         signals = []
         text_lower = text.lower()
         
@@ -350,6 +388,8 @@ class DeepValidator:
         Extract email addresses from text.
         P0 Fix: Enhanced filtering with blocklist.
         """
+        if not isinstance(text, str):
+            return []
         found = EMAIL_REGEX.findall(text)
         
         # Filter out common false positives
@@ -385,6 +425,8 @@ class DeepValidator:
         Extract phone numbers from text.
         P0 Fix: Use phonenumbers library for accurate extraction.
         """
+        if not isinstance(text, str):
+            return []
         phones = []
         
         # Try phonenumbers library first (much more accurate)
@@ -444,30 +486,104 @@ class DeepValidator:
         # Tier 3: Minimal or no validation
         return 3
     
+    def _validate_lead_with_timeout(self, lead: Dict, timeout_seconds: int = 30) -> Dict:
+        """Validate lead with hard thread-based timeout."""
+        future = _executor.submit(self.validate_lead, lead)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except FuturesTimeoutError:
+            logger.warning(f"HARD TIMEOUT: {lead.get('company', 'Unknown')[:30]} after {timeout_seconds}s")
+            lead["validation_status"] = "hard_timeout"
+            lead["fail_reason"] = f"hard_timeout_{timeout_seconds}s"
+            lead["tier"] = 3
+            lead["website_accessible"] = False
+            return lead
+        except Exception as e:
+            logger.warning(f"Thread error: {lead.get('company', 'Unknown')[:30]} - {e}")
+            lead["validation_status"] = "thread_error"
+            lead["fail_reason"] = str(e)[:100]
+            lead["tier"] = 3
+            return lead
+    
     def validate_batch(
         self,
         leads: List[Dict],
         progress_callback: Optional[callable] = None,
+        checkpoint_every: int = 25,
+        checkpoint_dir: Optional[str] = None,
+        hard_timeout: int = 30,
     ) -> List[Dict]:
         """
-        Validate a batch of leads.
+        Validate a batch of leads with checkpoint support and HARD timeout.
+        
+        Args:
+            leads: List of leads to validate
+            progress_callback: Optional callback for progress updates
+            checkpoint_every: Save checkpoint every N leads (default 25)
+            checkpoint_dir: Directory for checkpoint files
+            hard_timeout: Hard timeout per lead in seconds (default 30)
         
         Returns list of validated leads.
         """
-        logger.info(f"Deep validating {len(leads)} leads...")
+        import pandas as pd
+        
+        total_leads = len(leads)
+        logger.info(f"Deep validating {total_leads} leads (hard timeout: {hard_timeout}s, checkpoint every {checkpoint_every})...")
+        
+        # Setup checkpoint directory
+        if checkpoint_dir is None:
+            checkpoint_dir = "data/staging"
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        checkpoint_file = os.path.join(checkpoint_dir, "validation_checkpoint.csv")
         
         validated = []
+        batch_start_time = time.monotonic()
+        timeouts_count = 0
+        
         for i, lead in enumerate(leads):
-            validated_lead = self.validate_lead(lead)
+            lead_start = time.monotonic()
+            
+            # Use thread-based hard timeout
+            validated_lead = self._validate_lead_with_timeout(lead, timeout_seconds=hard_timeout)
+            
+            lead_elapsed = time.monotonic() - lead_start
+            validated_lead["validation_time_seconds"] = round(lead_elapsed, 2)
+            
+            if validated_lead.get("validation_status") == "hard_timeout":
+                timeouts_count += 1
+            
             validated.append(validated_lead)
             
+            # Progress logging - every 5 leads for better visibility
             if progress_callback:
-                progress_callback(i + 1, len(leads))
-            elif (i + 1) % 10 == 0:
-                logger.info(f"Validation progress: {i + 1}/{len(leads)}")
+                progress_callback(i + 1, total_leads)
+            elif (i + 1) % 5 == 0 or (i + 1) == total_leads:
+                elapsed_total = time.monotonic() - batch_start_time
+                rate = (i + 1) / elapsed_total if elapsed_total > 0 else 0
+                eta = (total_leads - i - 1) / rate if rate > 0 else 0
+                logger.info(f"Validation: {i + 1}/{total_leads} | "
+                           f"Rate: {rate:.1f}/s | ETA: {eta/60:.1f}min | "
+                           f"T1: {self.stats.get('tier_1', 0)} | TO: {timeouts_count}")
             
-            # Small delay to be polite
-            time.sleep(0.5)
+            # Checkpoint save
+            if (i + 1) % checkpoint_every == 0:
+                try:
+                    df_checkpoint = pd.DataFrame(validated)
+                    df_checkpoint.to_csv(checkpoint_file, index=False)
+                    logger.info(f"💾 Checkpoint saved: {i + 1} leads -> {checkpoint_file}")
+                except Exception as e:
+                    logger.warning(f"Checkpoint save failed: {e}")
+            
+            # Polite delay (reduced from 0.5 to 0.3 for faster processing)
+            time.sleep(0.3)
+        
+        # Final checkpoint
+        try:
+            df_final = pd.DataFrame(validated)
+            df_final.to_csv(checkpoint_file, index=False)
+            logger.info(f"✅ Final checkpoint saved: {len(validated)} leads")
+        except Exception as e:
+            logger.warning(f"Final checkpoint failed: {e}")
         
         logger.info(f"Deep validation complete. Stats: {self.stats}")
         return validated

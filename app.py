@@ -81,6 +81,18 @@ from src.processors.enrichment_queue import EnrichmentQueue
 # V8: Advanced scenting and deep validation
 from src.collectors.brave_scenter import BraveScenter
 from src.processors.deep_validator import DeepValidator, TierExporter
+from src.processors.fast_filter import FastFilter
+from src.processors.evidence_classifier import EvidenceClassifier
+from src.processors.contactability_scorer import ContactabilityScorer
+from src.processors.website_resolver import WebsiteResolver
+from src.processors.source_tracker import SourceTracker
+from src.processors.machine_age_estimator import MachineAgeEstimator
+from src.processors.golden_exporter import GoldenExporter
+from src.tracking.sales_tracker import SalesTracker
+# V10: New scoring modules
+from src.processors.v10_scorer import V10Scorer
+from src.processors.keyword_processor import MultilingualKeywordProcessor
+from src.processors.event_trigger import EventTriggerProcessor
 # GPT V3: Import fix functions
 try:
     from gpt_v3_fix import fix_schema, apply_noise_filter, enhanced_role_classify, validate_sce_sales_ready, export_split
@@ -146,6 +158,11 @@ class V8Pipeline:
         self.scorer = Scorer(self.targets, self.scoring_config)
         self.sce_scorer = SCEScorer()
         self.exporter = Exporter()
+        
+        # V10: New scoring modules
+        self.v10_scorer = V10Scorer()
+        self.keyword_processor = MultilingualKeywordProcessor()
+        self.event_trigger_processor = EventTriggerProcessor()
         
         # Ensure directories
         for dir_key in ["output_dir", "staging_dir", "processed_dir", "cache_dir"]:
@@ -222,6 +239,9 @@ class V8Pipeline:
         
         # Phase 6: Heuristic Scoring
         leads = self._phase6_heuristic_scoring(leads)
+        
+        # Phase 6.5: V10 Enhanced Scoring (100-point model + multilingual + triggers)
+        leads = self._phase6_v10_scoring(leads)
         
         # Phase 7: SCE Scoring
         leads = self._phase7_sce_scoring(leads)
@@ -417,6 +437,62 @@ class V8Pipeline:
         
         return scored_leads
     
+    def _phase6_v10_scoring(self, leads: List[Dict]) -> List[Dict]:
+        """
+        Phase 6.5: V10 Enhanced Scoring
+        
+        100-point model with 4 categories:
+        - Activity Fit (30 pts): Finishing/dyehouse signals
+        - Machine Evidence (25 pts): OEM brand mentions
+        - Company Profile (25 pts): Size, certs, export
+        - Purchase Signals (20 pts): Trade, fairs, expansion
+        
+        Also applies:
+        - Multilingual keyword extraction (FlashText)
+        - Event triggers (import, fair, facility)
+        """
+        self.stats["phase"] = "v10_scoring"
+        logger.info("\n" + "-" * 50)
+        logger.info("🎯 PHASE 6.5: V10 ENHANCED SCORING (100-POINT MODEL)")
+        logger.info("-" * 50)
+        logger.info("  ✓ 4-category scoring: Activity(30) + Machine(25) + Profile(25) + Signals(20)")
+        logger.info("  ✓ Multilingual keyword extraction (TR/EN/PT/ES/FR/VI/RU)")
+        logger.info("  ✓ Event triggers (import/fair/facility)")
+        
+        # Step 1: Keyword extraction
+        logger.info("  → Extracting multilingual keywords...")
+        leads = self.keyword_processor.process_batch(leads)
+        
+        # Step 2: Event trigger detection
+        logger.info("  → Detecting event triggers...")
+        leads = self.event_trigger_processor.process_batch(leads)
+        
+        # Step 3: V10 100-point scoring
+        logger.info("  → Applying 100-point scoring model...")
+        leads = self.v10_scorer.score_batch(leads)
+        
+        # Stats
+        v10_stats = self.v10_scorer.get_stats()
+        trigger_stats = self.event_trigger_processor.get_stats()
+        
+        self.stats["v10_grade_a"] = v10_stats.get("grade_a", 0)
+        self.stats["v10_grade_b"] = v10_stats.get("grade_b", 0)
+        self.stats["v10_grade_c"] = v10_stats.get("grade_c", 0)
+        self.stats["v10_grade_d"] = v10_stats.get("grade_d", 0)
+        self.stats["v10_disqualified"] = v10_stats.get("disqualified", 0)
+        self.stats["triggers_fired"] = trigger_stats.get("triggers_fired", 0)
+        self.stats["high_priority_triggers"] = trigger_stats.get("high_priority", 0)
+        
+        logger.info(f"✅ V10 Scoring complete:")
+        logger.info(f"   Grade A (Hot): {v10_stats.get('grade_a', 0)}")
+        logger.info(f"   Grade B (Warm): {v10_stats.get('grade_b', 0)}")
+        logger.info(f"   Grade C (Nurture): {v10_stats.get('grade_c', 0)}")
+        logger.info(f"   Grade D (Cold): {v10_stats.get('grade_d', 0)}")
+        logger.info(f"   Disqualified: {v10_stats.get('disqualified', 0)}")
+        logger.info(f"   Triggers fired: {trigger_stats.get('triggers_fired', 0)} ({trigger_stats.get('high_priority', 0)} high priority)")
+        
+        return leads
+    
     def _phase7_sce_scoring(self, leads: List[Dict]) -> List[Dict]:
         """Phase 7: SCE (Stenter Customer Evidence) scoring."""
         self.stats["phase"] = "sce_scoring"
@@ -434,16 +510,44 @@ class V8Pipeline:
         return scored_leads
     
     def _phase8_deep_validation(self, leads: List[Dict]) -> List[Dict]:
-        """Phase 8: Deep validation with P0 improvements."""
+        """Phase 8: Deep validation with P0 improvements and checkpoint resume."""
         self.stats["phase"] = "deep_validation"
         logger.info("\n" + "-" * 50)
-        logger.info("🔬 PHASE 8: DEEP VALIDATION (P0 Enhanced)")
+        logger.info("🔬 PHASE 8: DEEP VALIDATION (HARD TIMEOUT + CHECKPOINT)")
         logger.info("-" * 50)
+        logger.info("  ✓ Thread-based HARD timeout (30s per lead)")
+        logger.info("  ✓ Checkpoint resume support")
         logger.info("  ✓ phonenumbers library (E.164 format)")
-        logger.info("  ✓ SSL fallback (HTTPS -> HTTP)")
-        logger.info("  ✓ Email blocklist filtering")
         
-        validated_leads = self.deep_validator.validate_batch(leads)
+        # Check for existing checkpoint
+        checkpoint_file = os.path.join(self.config["staging_dir"], "validation_checkpoint.csv")
+        validated_companies = set()
+        resumed_leads = []
+        
+        if os.path.exists(checkpoint_file):
+            try:
+                df_checkpoint = pd.read_csv(checkpoint_file)
+                if len(df_checkpoint) > 0:
+                    # Get already validated companies
+                    validated_companies = set(df_checkpoint["company"].dropna().astype(str).tolist())
+                    resumed_leads = df_checkpoint.to_dict(orient="records")
+                    logger.info(f"📂 Found checkpoint with {len(resumed_leads)} validated leads")
+            except Exception as e:
+                logger.warning(f"Could not load checkpoint: {e}")
+        
+        # Filter out already validated leads
+        remaining_leads = [
+            l for l in leads 
+            if str(l.get("company", "")) not in validated_companies
+        ]
+        
+        if remaining_leads:
+            logger.info(f"🔄 Resuming: {len(remaining_leads)} remaining (skipping {len(validated_companies)} done)")
+            new_validated = self.deep_validator.validate_batch(remaining_leads, hard_timeout=30)
+            validated_leads = resumed_leads + new_validated
+        else:
+            logger.info("✅ All leads already validated from checkpoint")
+            validated_leads = resumed_leads
         
         self.stats["tier_1"] = sum(1 for l in validated_leads if l.get("tier") == 1)
         self.stats["tier_2"] = sum(1 for l in validated_leads if l.get("tier") == 2)
@@ -485,6 +589,21 @@ class V8Pipeline:
             pd.DataFrame(high_score).to_csv(hs_path, index=False)
             logger.info(f"⭐ Exported {len(high_score)} high-score leads")
         
+        # V10: Export by grade (A/B/C/D)
+        for grade in ["A", "B", "C", "D"]:
+            grade_leads = [l for l in leads if l.get("v10_grade") == grade]
+            if grade_leads:
+                grade_path = os.path.join(output_dir, f"v10_grade_{grade}_{self.timestamp}.csv")
+                pd.DataFrame(grade_leads).to_csv(grade_path, index=False)
+                logger.info(f"🏆 V10 Grade {grade}: {len(grade_leads)} leads")
+        
+        # V10: Export high priority triggers (for immediate CRM action)
+        high_trigger = [l for l in leads if l.get("has_high_priority_trigger")]
+        if high_trigger:
+            trigger_path = os.path.join(output_dir, f"v10_high_priority_{self.timestamp}.csv")
+            pd.DataFrame(high_trigger).to_csv(trigger_path, index=False)
+            logger.info(f"🚨 V10 High Priority Triggers: {len(high_trigger)} leads")
+        
         # Export by region
         for region in ["Brazil", "Turkey", "Egypt", "Pakistan", "Bangladesh"]:
             region_leads = [l for l in leads if str(l.get("country", "")).lower() == region.lower()]
@@ -516,9 +635,19 @@ class V8Pipeline:
         logger.info(f"SCE Sales Ready:        {self.stats['sce_sales_ready']}")
         logger.info(f"Heuristic High (>=70):  {heuristic_high}")
         logger.info("-" * 50)
-        logger.info(f"Tier 1 (Full):          {tier1}")
-        logger.info(f"Tier 2 (Promising):     {tier2}")
-        logger.info(f"Tier 3 (Research):      {tier3}")
+        logger.info("V8 TIER BREAKDOWN:")
+        logger.info(f"  Tier 1 (Full):          {tier1}")
+        logger.info(f"  Tier 2 (Promising):     {tier2}")
+        logger.info(f"  Tier 3 (Research):      {tier3}")
+        logger.info("-" * 50)
+        logger.info("V10 GRADE BREAKDOWN (100-point model):")
+        logger.info(f"  Grade A (Hot, >=85):    {self.stats.get('v10_grade_a', 0)}")
+        logger.info(f"  Grade B (Warm, >=70):   {self.stats.get('v10_grade_b', 0)}")
+        logger.info(f"  Grade C (Nurture, >=50):{self.stats.get('v10_grade_c', 0)}")
+        logger.info(f"  Grade D (Cold, <50):    {self.stats.get('v10_grade_d', 0)}")
+        logger.info(f"  Disqualified:           {self.stats.get('v10_disqualified', 0)}")
+        logger.info(f"  Triggers Fired:         {self.stats.get('triggers_fired', 0)}")
+        logger.info(f"  High Priority:          {self.stats.get('high_priority_triggers', 0)}")
         logger.info("=" * 70)
         
         # P0: Key metrics
@@ -527,12 +656,16 @@ class V8Pipeline:
             websites_rate = (self.stats['websites_resolved'] / after_filter) * 100
             sce_rate = (self.stats['sce_sales_ready'] / after_filter) * 100
             heuristic_rate = (heuristic_high / after_filter) * 100
+            grade_a_rate = (self.stats.get('v10_grade_a', 0) / after_filter) * 100
+            grade_ab_rate = ((self.stats.get('v10_grade_a', 0) + self.stats.get('v10_grade_b', 0)) / after_filter) * 100
             
             logger.info("\n📈 KEY METRICS (P0 Tracking):")
             logger.info(f"  Tier 1 Rate:          {tier1_rate:.1f}%")
             logger.info(f"  Websites Resolved:    {websites_rate:.1f}%")
             logger.info(f"  SCE Sales Ready:      {sce_rate:.1f}%")
             logger.info(f"  Heuristic High:       {heuristic_rate:.1f}%")
+            logger.info(f"  V10 Grade A Rate:     {grade_a_rate:.1f}%")
+            logger.info(f"  V10 Grade A+B Rate:   {grade_ab_rate:.1f}%")
         
         # Scenter stats
         scenter_stats = self.scenter.get_stats()
@@ -584,6 +717,265 @@ class V8Pipeline:
             writer.writerow(metrics)
         
         logger.info(f"\n📈 Metrics saved to {metrics_file}")
+
+
+# =============================================================================
+# V9 PIPELINE CLASS (Sniper)
+# =============================================================================
+
+class V9Pipeline(V8Pipeline):
+    """
+    LeadIntel Pro V9 - Sniper Pipeline.
+
+    Adds:
+    - Reject-fast filtering
+    - Website resolver
+    - Evidence-first (K1+K2) standard
+    - Contactability scoring
+    - FinalScore (Evidence × Contactability × Urgency)
+    - Golden export + leads pool
+    - Source ROI tracking
+    """
+
+    def __init__(self, config: Dict = None):
+        super().__init__(config=config)
+        self.fast_filter = FastFilter()
+        self.website_resolver = WebsiteResolver()
+        self.entity_gate = EntityQualityGateV2()
+        self.evidence_classifier = EvidenceClassifier()
+        self.contactability_scorer = ContactabilityScorer()
+        self.source_tracker = SourceTracker()
+        self.machine_age_estimator = MachineAgeEstimator()
+        self.golden_exporter = GoldenExporter()
+
+        # V9 stats
+        self.stats.update({
+            "after_fast_filter": 0,
+            "after_entity_gate": 0,
+            "golden_count": 0,
+            "pool_count": 0,
+        })
+
+    def run(
+        self,
+        discover: bool = True,
+        validate: bool = True,
+        limit: Optional[int] = None,
+        source_file: Optional[str] = None,
+    ) -> str:
+        logger.info("=" * 70)
+        logger.info("🎯 LeadIntel Pro V9 - SNIPER PIPELINE")
+        logger.info("=" * 70)
+        logger.info(f"Timestamp: {self.timestamp}")
+        logger.info(f"Options: discover={discover}, validate={validate}, limit={limit}")
+
+        if discover:
+            self._phase1_bulk_discovery()
+
+        if source_file:
+            leads = self._load_from_file(source_file)
+        else:
+            leads = self._phase2_load_leads()
+
+        self.stats["total_leads"] = len(leads)
+        logger.info(f"📊 Loaded {len(leads)} total leads")
+
+        if limit:
+            leads = leads[:limit]
+            logger.info(f"⚠️ Limited to {len(leads)} leads for testing")
+
+        leads = self._phase3_dedupe(leads)
+        self.stats["after_dedupe"] = len(leads)
+
+        leads = self._phase4_role_filter(leads)
+        self.stats["after_role_filter"] = len(leads)
+
+        leads = self._phase4b_fast_filter(leads)
+        self.stats["after_fast_filter"] = len(leads)
+
+        leads = self._phase4c_entity_gate(leads)
+        self.stats["after_entity_gate"] = len(leads)
+
+        leads = self._phase5_scenting(leads)
+
+        leads = self._phase5b_website_resolver(leads)
+
+        leads = self._phase6_heuristic_scoring(leads)
+        leads = self._phase6_v10_scoring(leads)
+        leads = self._phase7_sce_scoring(leads)
+
+        if validate:
+            leads = self._phase8_deep_validation(leads)
+
+        leads = self._phase8b_v9_scoring(leads)
+
+        output_path = self._phase9_export_v9(leads)
+        self._print_summary()
+        return output_path
+
+    def _phase4b_fast_filter(self, leads: List[Dict]) -> List[Dict]:
+        logger.info("\n" + "-" * 50)
+        logger.info("⚡ PHASE 4B: FAST FILTER")
+        logger.info("-" * 50)
+        passed, rejected = self.fast_filter.filter_batch(leads)
+        if rejected:
+            rejected_path = os.path.join(self.config["staging_dir"], f"rejected_fast_{self.timestamp}.csv")
+            pd.DataFrame(rejected).to_csv(rejected_path, index=False)
+            logger.info(f"Fast filter rejected {len(rejected)} leads (saved to {rejected_path})")
+        return passed
+
+    def _phase4c_entity_gate(self, leads: List[Dict]) -> List[Dict]:
+        logger.info("\n" + "-" * 50)
+        logger.info("🧹 PHASE 4C: ENTITY QUALITY GATE")
+        logger.info("-" * 50)
+        passed = []
+        rejected = []
+        for lead in leads:
+            grade, reason = self.entity_gate.grade_entity(lead)
+            lead["entity_grade"] = grade
+            lead["entity_grade_reason"] = reason
+            if grade == "REJECT":
+                rejected.append(lead)
+            else:
+                passed.append(lead)
+        if rejected:
+            rejected_path = os.path.join(self.config["staging_dir"], f"rejected_entity_{self.timestamp}.csv")
+            pd.DataFrame(rejected).to_csv(rejected_path, index=False)
+            logger.info(f"Entity gate rejected {len(rejected)} leads (saved to {rejected_path})")
+        return passed
+
+    def _phase5b_website_resolver(self, leads: List[Dict]) -> List[Dict]:
+        logger.info("\n" + "-" * 50)
+        logger.info("🌐 PHASE 5B: WEBSITE RESOLVER")
+        logger.info("-" * 50)
+        return self.website_resolver.resolve_batch(leads)
+
+    def _phase8b_v9_scoring(self, leads: List[Dict]) -> List[Dict]:
+        logger.info("\n" + "-" * 50)
+        logger.info("🧪 PHASE 8B: V9 SCORING + EVIDENCE")
+        logger.info("-" * 50)
+
+        for lead in leads:
+            # Preserve old tier
+            lead["tier_v8"] = lead.get("tier")
+
+            # Evidence classification
+            lead = self.evidence_classifier.classify_lead(lead)
+
+            # Contactability
+            lead = self.contactability_scorer.score_lead(lead)
+
+            # Machine age proxy
+            lead = self.machine_age_estimator.estimate_age(lead)
+
+            # Final score + tier
+            lead["evidence_score"] = self._calculate_evidence_score(lead)
+            lead["final_score"] = self._calculate_final_score(lead)
+            lead["tier"] = self._classify_tier_v9(lead)
+
+            # Align with Exporter expectations
+            lead["score"] = lead.get("final_score", 0)
+
+            # Track source ROI
+            source_id = lead.get("source_type") or lead.get("source") or "unknown"
+            self.source_tracker.record_lead(str(source_id), int(lead.get("tier", 3)))
+
+        return leads
+
+    def _phase9_export_v9(self, leads: List[Dict]) -> str:
+        logger.info("\n" + "-" * 50)
+        logger.info("📤 PHASE 9: V9 EXPORT")
+        logger.info("-" * 50)
+
+        output_dir = self.config.get("output_dir", "outputs/crm")
+        reports_dir = "outputs/reports"
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(reports_dir, exist_ok=True)
+
+        # Evidence-first gate: Golden vs Pool
+        golden = [l for l in leads if l.get("is_golden")]
+        pool = [l for l in leads if not l.get("is_golden")]
+
+        self.stats["golden_count"] = len(golden)
+        self.stats["pool_count"] = len(pool)
+
+        if pool:
+            pool_path = os.path.join(self.config["staging_dir"], f"leads_pool_{self.timestamp}.csv")
+            pd.DataFrame(pool).to_csv(pool_path, index=False)
+            logger.info(f"Leads pool saved: {pool_path} ({len(pool)})")
+
+        # Golden export (sales-friendly)
+        if golden:
+            golden_records = [self.golden_exporter.export_golden_record(l) for l in golden]
+            golden_path = os.path.join(output_dir, f"golden_records_{self.timestamp}.csv")
+            pd.DataFrame(golden_records).to_csv(golden_path, index=False)
+            logger.info(f"Golden records exported: {golden_path} ({len(golden)})")
+
+        # Standard exporter for CRM targets
+        output_path = self.exporter.export_targets(golden)
+
+        # Source ROI report
+        source_roi_path = os.path.join(reports_dir, f"source_roi_{self.timestamp}.csv")
+        pd.DataFrame(self.source_tracker.to_rows()).to_csv(source_roi_path, index=False)
+        logger.info(f"Source ROI report saved: {source_roi_path}")
+
+        return output_path or ""
+
+    def _calculate_evidence_score(self, lead: Dict) -> float:
+        score = 0
+        k1_count = int(lead.get("k1_count", 0) or 0)
+        k2_count = int(lead.get("k2_count", 0) or 0)
+        if k1_count >= 2:
+            score += 50
+        elif k1_count == 1:
+            score += 35
+        if k2_count >= 2:
+            score += 30
+        elif k2_count == 1:
+            score += 20
+
+        oem_brand = (lead.get("oem_brand") or "").strip()
+        if oem_brand in ["Monforts", "Brückner", "Krantz"]:
+            score += 20
+        elif oem_brand:
+            score += 10
+
+        return min(score, 100)
+
+    def _calculate_final_score(self, lead: Dict) -> float:
+        evidence_score = float(lead.get("evidence_score", 0) or 0)
+        contactability_score = float(lead.get("contactability_score", 0) or 0)
+
+        urgency_multiplier = 1.0
+        if lead.get("urgency_signal") == "job_posting":
+            urgency_multiplier += 0.3
+        if lead.get("machine_age_priority") == "high":
+            urgency_multiplier += 0.2
+        elif lead.get("machine_age_priority") == "low":
+            urgency_multiplier -= 0.2
+        if lead.get("has_recent_investment"):
+            urgency_multiplier += 0.2
+
+        urgency_multiplier = max(0.5, min(urgency_multiplier, 2.0))
+        weighted_score = (
+            (evidence_score * 0.50) +
+            (contactability_score * 0.30) +
+            (evidence_score * (urgency_multiplier - 1) * 0.20)
+        )
+        return round(weighted_score, 2)
+
+    def _classify_tier_v9(self, lead: Dict) -> int:
+        is_golden = bool(lead.get("is_golden"))
+        final_score = float(lead.get("final_score", 0) or 0)
+        contactability = float(lead.get("contactability_score", 0) or 0)
+        k1_count = int(lead.get("k1_count", 0) or 0)
+        k2_count = int(lead.get("k2_count", 0) or 0)
+
+        if is_golden and final_score >= 60 and contactability >= 40:
+            return 1
+        if (k1_count >= 1 or k2_count >= 1) and final_score >= 40:
+            return 2
+        return 3
 
 
 # =============================================================================
@@ -1407,6 +1799,13 @@ V8 Pipeline (Recommended):
     python app.py v8 --skip-validation  # Skip deep validation phase
     python app.py v8 --source FILE.csv  # Load leads from specific file
 
+V9 Pipeline (Sniper):
+    python app.py v9                    # Full V9 sniper pipeline
+    python app.py v9 --limit 50         # Test with 50 leads
+    python app.py v9 --skip-discovery   # Skip bulk discovery phase
+    python app.py v9 --skip-validation  # Skip deep validation phase
+    python app.py v9 --source FILE.csv  # Load leads from specific file
+
 Legacy Pipeline:
     python app.py all                   # Run all legacy stages
     python app.py harvest               # Only harvest stage
@@ -1415,7 +1814,7 @@ Legacy Pipeline:
     )
     parser.add_argument(
         "stage",
-        choices=["v8", "discover", "harvest", "enrich", "dedupe", "brave", "phase3", "score", "trade-rank", "ui", "all"],
+        choices=["v8", "v9", "discover", "harvest", "enrich", "dedupe", "brave", "phase3", "score", "trade-rank", "ui", "all"],
         help="Pipeline stage to run (v8 = new unified pipeline)",
     )
     parser.add_argument("--limit", type=int, help="Limit number of leads to process")
@@ -1437,6 +1836,17 @@ Legacy Pipeline:
             source_file=args.source,
         )
         logger.info(f"\n🎉 V8 Pipeline complete! Output: {output}")
+        return
+
+    if args.stage == "v9":
+        pipeline = V9Pipeline()
+        output = pipeline.run(
+            discover=not args.skip_discovery,
+            validate=not args.skip_validation,
+            limit=args.limit,
+            source_file=args.source,
+        )
+        logger.info(f"\n🎉 V9 Pipeline complete! Output: {output}")
         return
     
     # Legacy pipeline stages

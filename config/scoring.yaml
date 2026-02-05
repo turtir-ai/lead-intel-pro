@@ -165,3 +165,169 @@ target_regions:
     priority: 4
 
 trade_priority_path: "data/processed/country_priority_comtrade.csv"
+
+# =============================================================================
+# V10: 100 PUAN SKORLAMA MODELİ (newupgrade.md'den)
+# =============================================================================
+
+v10_scoring_model:
+  total_points: 100
+  
+  # Kategori ağırlıkları
+  categories:
+    activity_fit:
+      weight: 30
+      description: "Faaliyet Alanı Uyumu - Boyahane/terbiye tesisi mi?"
+      rules:
+        full_score: 30  # Boyahane/terbiye + hedef marka makinesi
+        partial_high: 25  # Entegre tesis + boyama bölümü
+        partial_medium: 15  # Tekstil üreticisi + terbiye kapasitesi
+        low_score: 10  # Hazır giyim/ev tekstili üreticisi
+        
+    machine_evidence:
+      weight: 25
+      description: "Makine Kanıtı - Hedef marka makineleri var mı?"
+      rules:
+        full_score: 25  # 2+ hedef marka + bakım sinyali
+        partial_high: 20  # 1 hedef marka tespit
+        partial_medium: 12  # Uyumlu alternatif marka
+        low_score: 8  # Makine bilgisi yok ama finishing var
+        
+    company_profile:
+      weight: 25
+      description: "Firma Profili Kalitesi"
+      rules:
+        full_score: 25  # ISO 500 + 500+ çalışan + uluslararası sertifika
+        partial_high: 20  # 100-500 çalışan + yerel sertifika
+        partial_medium: 12  # KOBİ + bölgesel ihracat
+        low_score: 8  # Küçük işletme, iç pazar
+        
+    purchase_signals:
+      weight: 20
+      description: "Satın Alma Sinyalleri"
+      rules:
+        full_score: 20  # Son 12 ay makine ithalatı + genişleme duyurusu
+        partial_high: 15  # Fuar katılımı + kapasite artışı
+        partial_medium: 10  # Yeni ürün lansmanı
+        low_score: 6  # Sinyal tespit edilemedi
+  
+  # Grade eşikleri
+  grade_thresholds:
+    grade_a:
+      min_score: 85
+      label: "Hot Lead"
+      description: "Satışa hazır, yüksek potansiyel"
+      action: "Hemen iletişim"
+    grade_b:
+      min_score: 70
+      label: "Warm Lead"
+      description: "Güçlü ilgi potansiyeli"
+      action: "Nurturing + takip"
+    grade_c:
+      min_score: 50
+      label: "Nurturing Lead"
+      description: "Uzun vadeli fırsat"
+      action: "İçerik pazarlama"
+    grade_d:
+      min_score: 0
+      label: "Cold Lead"
+      description: "Düşük öncelik"
+      action: "Arşivle"
+  
+  # Bonus puanlar
+  bonuses:
+    oem_brand_tier1: 10  # Brückner, Monforts, Krantz
+    oem_brand_tier2: 5   # Artos, Santex, diğer
+    certification_gots: 5
+    certification_oekotex: 5
+    fair_recent_participation: 5
+    job_posting_maintenance: 10
+    
+  # Negatif sinyaller (disqualification)
+  negative_signals:
+    is_machinery_supplier: -100
+    is_spare_parts_reseller: -100
+    is_trading_company: -50
+    no_finishing_evidence: -20
+
+# =============================================================================
+# V10: EVENT TRIGGER KONFİGÜRASYONU
+# =============================================================================
+
+event_triggers:
+  high_priority:
+    - trigger: "large_import"
+      description: "Büyük ithalat (HS 8451.90 > $50K)"
+      source: "customs_data"
+      action: "auto_create_lead"
+      score_bonus: 20
+      
+    - trigger: "new_facility"
+      description: "Yeni tesis/fabrika açılışı"
+      source: "news_scrape"
+      action: "fast_profile"
+      score_bonus: 15
+      
+    - trigger: "fair_participation"
+      description: "Fuar katılımı (ITMA, ITM, Techtextil)"
+      source: "exhibitor_list"
+      action: "score_boost"
+      score_bonus: 10
+      
+    - trigger: "expansion_announcement"
+      description: "Genişleme/yatırım duyurusu"
+      source: "news_monitor"
+      action: "purchase_signal"
+      score_bonus: 15
+      
+  medium_priority:
+    - trigger: "association_update"
+      description: "Sektör derneği üye güncellemesi"
+      source: "yaml_diff"
+      action: "lead_update"
+      
+    - trigger: "website_change"
+      description: "Web sitesi içerik değişikliği"
+      source: "html_hash"
+      action: "rescan_machine_park"
+      
+    - trigger: "maintenance_post"
+      description: "Sosyal medya bakım paylaşımı"
+      source: "keyword_monitor"
+      action: "spare_parts_signal"
+      score_bonus: 5
+
+# =============================================================================
+# V10: CRM ENTEGRASYON MAPPING
+# =============================================================================
+
+crm_integration:
+  hubspot:
+    enabled: true
+    field_mapping:
+      company: "company_name"
+      country: "country"
+      website: "website"
+      score: "lead_score"
+      grade: "lead_grade"
+      tier: "leadintel_tier"
+      k1_count: "external_evidence_count"
+      k2_count: "internal_evidence_count"
+      is_golden: "is_qualified_lead"
+      oem_brands: "target_machine_brands"
+      contactability_score: "contact_quality_score"
+    grade_to_status:
+      grade_a: "Sales Qualified Lead"
+      grade_b: "Marketing Qualified Lead"
+      grade_c: "Nurturing"
+      grade_d: "Archive"
+    min_grade_for_sync: "grade_c"
+    
+  salesforce:
+    enabled: false
+    field_mapping:
+      company: "Name"
+      country: "Country__c"
+      website: "Website"
+      score: "Lead_Score__c"
+      grade: "Lead_Grade__c"
