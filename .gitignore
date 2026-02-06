@@ -1,127 +1,48 @@
-# =============================================================================
-# LeadIntel Pro - .gitignore
-# =============================================================================
-
-# =============================================================================
-# Environment & Secrets
-# =============================================================================
-.env
-.env.local
-.env.*.local
-*.pem
-*.key
-secrets/
-credentials/
-
-# =============================================================================
 # Python
-# =============================================================================
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
-MANIFEST
+dist/
+build/
+.eggs/
 
 # Virtual environments
-venv/
-ENV/
-env/
 .venv/
+venv/
+env/
 
-# =============================================================================
-# Data Files - DO NOT COMMIT (Contains research data)
-# =============================================================================
-data/
-outputs/
-*.csv
-*.xlsx
-*.xls
-harvest_log.txt
-
-# Raw HTML/JSON cache
-*.html
-*.json
-
-# =============================================================================
-# Test & Analysis Scripts (Development only)
-# =============================================================================
-test_*.py
-analyze_*.py
-validate_*.py
-fix_*.py
-show_*.py
-merge_*.py
-search_*.py
-final_report.py
-generate_report.py
-export_crm.py
-run_full_harvest.py
-
-# =============================================================================
-# IDE & Editor
-# =============================================================================
-.idea/
+# IDE
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
-.project
-.pydevproject
-.settings/
-*.sublime-project
-*.sublime-workspace
 
-# =============================================================================
-# OS Generated
-# =============================================================================
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-desktop.ini
 
-# =============================================================================
-# Jupyter Notebooks
-# =============================================================================
-.ipynb_checkpoints/
-*.ipynb
+# Data files (large/generated)
+data/raw/html/
+data/raw/json/
+data/raw/text/
+data/cache/
+data/processed/
+data/staging/
+outputs/
 
-# =============================================================================
+# Temp analysis scripts
+analyze_*.py
+check_*.py
+trace_*.py
+debug_*.py
+quick_*.py
+
 # Logs
-# =============================================================================
 *.log
-logs/
+/tmp/
 
-# =============================================================================
-# Temporary files
-# =============================================================================
-tmp/
-temp/
-*.tmp
-*.bak
-*.backup
-
-# =============================================================================
-# Documentation build
-# =============================================================================
-docs/_build/
-site/
+# Secrets
+.env
+*.key
