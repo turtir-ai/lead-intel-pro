@@ -309,7 +309,11 @@ class V8Pipeline:
         targets_csv = self.config.get("targets_master")
         if targets_csv and os.path.exists(targets_csv):
             targets_df = pd.read_csv(targets_csv)
-            targets_df["source_type"] = "pipeline"
+            # V10.4: Preserve original source_type, only set fallback
+            if "source_type" not in targets_df.columns:
+                targets_df["source_type"] = "pipeline"
+            else:
+                targets_df["source_type"] = targets_df["source_type"].fillna("pipeline")
             targets_leads = targets_df.to_dict(orient="records")
             all_leads.extend(targets_leads)
             logger.info(f"📋 Loaded {len(targets_leads)} pipeline leads")
@@ -641,8 +645,8 @@ class V8Pipeline:
         logger.info(f"  Tier 3 (Research):      {tier3}")
         logger.info("-" * 50)
         logger.info("V10 GRADE BREAKDOWN (100-point model):")
-        logger.info(f"  Grade A (Hot, >=85):    {self.stats.get('v10_grade_a', 0)}")
-        logger.info(f"  Grade B (Warm, >=70):   {self.stats.get('v10_grade_b', 0)}")
+        logger.info(f"  Grade A (Hot, >=80):    {self.stats.get('v10_grade_a', 0)}")
+        logger.info(f"  Grade B (Warm, >=65):   {self.stats.get('v10_grade_b', 0)}")
         logger.info(f"  Grade C (Nurture, >=50):{self.stats.get('v10_grade_c', 0)}")
         logger.info(f"  Grade D (Cold, <50):    {self.stats.get('v10_grade_d', 0)}")
         logger.info(f"  Disqualified:           {self.stats.get('v10_disqualified', 0)}")
@@ -807,6 +811,15 @@ class V9Pipeline(V8Pipeline):
         if validate:
             leads = self._phase8_deep_validation(leads)
 
+        # V10.4: Re-score any leads that came from checkpoint without V10 scores
+        unscored = [l for l in leads if not l.get("v10_score") and l.get("v10_score") != 0]
+        if unscored:
+            logger.info(f"Re-scoring {len(unscored)} checkpoint leads missing V10 scores...")
+            leads = self._phase6_v10_scoring(leads)
+
+        # V10.4: Consolidate email/phone fields before export
+        leads = self._consolidate_contacts(leads)
+
         leads = self._phase8b_v9_scoring(leads)
 
         output_path = self._phase9_export_v9(leads)
@@ -843,6 +856,104 @@ class V9Pipeline(V8Pipeline):
             pd.DataFrame(rejected).to_csv(rejected_path, index=False)
             logger.info(f"Entity gate rejected {len(rejected)} leads (saved to {rejected_path})")
         return passed
+
+    def _consolidate_contacts(self, leads: List[Dict]) -> List[Dict]:
+        """V10.4: Consolidate email/phone from multiple sources into primary fields.
+        
+        Sources: emails_extracted (deep_validator), emails (contact_enricher), email (collector)
+        Target: email (primary), phone (primary)
+        """
+        logger.info("\n" + "-" * 50)
+        logger.info("📧 V10.4: CONTACT CONSOLIDATION")
+        logger.info("-" * 50)
+        
+        email_filled = 0
+        phone_filled = 0
+        
+        # Email blocklist
+        EMAIL_BLOCKLIST = {
+            'noreply', 'no-reply', 'donotreply', 'do-not-reply',
+            'unsubscribe', 'postmaster', 'mailer-daemon', 'bounce',
+            'abuse', 'spam', 'root', 'webmaster', 'hostmaster',
+        }
+        DOMAIN_BLOCKLIST = {
+            'example.com', 'test.com', 'sentry.io', 'gravatar.com',
+            'wp.com', 'wordpress.com', 'sharethis.com', 'addthis.com',
+        }
+        
+        def _clean_email(email_str: str) -> str:
+            """Clean and validate a single email."""
+            if not email_str or not isinstance(email_str, str):
+                return ""
+            email_str = email_str.strip().lower()
+            if '@' not in email_str:
+                return ""
+            local, domain = email_str.rsplit('@', 1)
+            if local in EMAIL_BLOCKLIST:
+                return ""
+            if domain in DOMAIN_BLOCKLIST:
+                return ""
+            return email_str
+        
+        def _extract_list(val) -> list:
+            """Safely extract a list from various storage formats."""
+            if isinstance(val, list):
+                return val
+            if not val or (isinstance(val, float) and val != val):  # NaN check
+                return []
+            val_str = str(val).strip()
+            if val_str in ('', '[]', 'nan', 'None', 'null'):
+                return []
+            # Parse string representation of list
+            if val_str.startswith('['):
+                try:
+                    import ast
+                    return ast.literal_eval(val_str)
+                except:
+                    pass
+            # Single value
+            return [val_str]
+        
+        for lead in leads:
+            # Consolidate emails
+            existing_email = str(lead.get('email', '')).strip()
+            if existing_email in ('', 'nan', 'None', 'null'):
+                existing_email = ''
+            
+            if not existing_email:
+                # Try emails_extracted first (from deep_validator)
+                candidates = _extract_list(lead.get('emails_extracted', []))
+                if not candidates:
+                    candidates = _extract_list(lead.get('emails', []))
+                
+                for candidate in candidates:
+                    clean = _clean_email(str(candidate))
+                    if clean:
+                        lead['email'] = clean
+                        email_filled += 1
+                        break
+            
+            # Consolidate phones
+            existing_phone = str(lead.get('phone', '')).strip()
+            if existing_phone in ('', 'nan', 'None', 'null'):
+                existing_phone = ''
+            
+            if not existing_phone:
+                candidates = _extract_list(lead.get('phones_extracted', []))
+                if not candidates:
+                    candidates = _extract_list(lead.get('phones', []))
+                
+                for candidate in candidates:
+                    phone_str = str(candidate).strip()
+                    if phone_str and phone_str not in ('nan', 'None', '[]'):
+                        lead['phone'] = phone_str
+                        phone_filled += 1
+                        break
+        
+        logger.info(f"Emails consolidated: {email_filled} leads gained email")
+        logger.info(f"Phones consolidated: {phone_filled} leads gained phone")
+        
+        return leads
 
     def _phase5b_website_resolver(self, leads: List[Dict]) -> List[Dict]:
         logger.info("\n" + "-" * 50)
@@ -911,8 +1022,21 @@ class V9Pipeline(V8Pipeline):
             pd.DataFrame(golden_records).to_csv(golden_path, index=False)
             logger.info(f"Golden records exported: {golden_path} ({len(golden)})")
 
+        # V10.4: Export ALL qualifying leads (not just golden)
+        # Golden leads are Tier 1 priority, qualified pool leads are also valuable
+        # Filter pool by V10 grade or minimum score to avoid noise
+        qualified_pool = [
+            l for l in pool
+            if l.get("v10_grade") in ("A", "B", "C")
+            or (l.get("v10_score") is not None and float(l.get("v10_score", 0) or 0) >= 50)
+            or l.get("entity_grade") in ("A", "B")
+        ]
+        
+        all_exportable = golden + qualified_pool
+        logger.info(f"Export: {len(golden)} golden + {len(qualified_pool)} qualified pool = {len(all_exportable)} total")
+        
         # Standard exporter for CRM targets
-        output_path = self.exporter.export_targets(golden)
+        output_path = self.exporter.export_targets(all_exportable)
 
         # Source ROI report
         source_roi_path = os.path.join(reports_dir, f"source_roi_{self.timestamp}.csv")
@@ -1881,4 +2005,8 @@ Legacy Pipeline:
         os.system("streamlit run src/ui/app_streamlit.py")
 
 if __name__ == "__main__":
+    # V10.4: Auto-detect CWD from script location
+    import pathlib
+    script_dir = pathlib.Path(__file__).parent.resolve()
+    os.chdir(script_dir)
     main()

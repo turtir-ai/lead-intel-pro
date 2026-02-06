@@ -31,6 +31,7 @@ class EvidenceClassifier:
         "gots",
         "oekotex",
         "bettercotton",
+        "bluesign",
         # Trade/import data
         "trade_import",
         "egypt_tec",
@@ -40,10 +41,30 @@ class EvidenceClassifier:
         # Competitor intelligence
         "competitor_customer",
         "competitor",
+        # V10.4: Industry directories and associations (verified sources)
+        "directory",
+        "association_member",
+        "amith",
+        "abit",
+        "regional_collector",
     }
 
     def classify_lead(self, lead: Dict) -> Dict:
-        evidence_sources: List[Dict] = list(lead.get("evidence_sources", []) or [])
+        raw_evidence = lead.get("evidence_sources", []) or []
+        
+        # V10.4: Handle string-encoded lists from CSV round-trips
+        if isinstance(raw_evidence, str):
+            try:
+                import ast
+                raw_evidence = ast.literal_eval(raw_evidence)
+            except Exception:
+                raw_evidence = []
+        
+        # Ensure we have a list of dicts, filter out non-dict entries
+        evidence_sources: List[Dict] = [
+            src for src in (raw_evidence if isinstance(raw_evidence, list) else [])
+            if isinstance(src, dict)
+        ]
 
         website = _safe_str(lead.get("website"))
         domain = ""
@@ -62,7 +83,16 @@ class EvidenceClassifier:
             })
 
         # K1: OEM evidence from Brave snippet if URL is external
-        for detail in lead.get("evidence_details", []) or []:
+        raw_details = lead.get("evidence_details", []) or []
+        if isinstance(raw_details, str):
+            try:
+                import ast
+                raw_details = ast.literal_eval(raw_details)
+            except Exception:
+                raw_details = []
+        evidence_details = [d for d in (raw_details if isinstance(raw_details, list) else []) if isinstance(d, dict)]
+        
+        for detail in evidence_details:
             url = detail.get("url", "")
             detail_type = detail.get("type", "")
             is_external = False
@@ -106,7 +136,7 @@ class EvidenceClassifier:
             })
 
         # K2: Brave evidence details on same domain
-        for detail in lead.get("evidence_details", []) or []:
+        for detail in evidence_details:
             url = detail.get("url", "")
             try:
                 d = urlparse(url).netloc.lower()

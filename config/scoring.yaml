@@ -40,7 +40,7 @@ export:
     - "brave_search"         # V10.3: Added for North Africa leads
     - "oem_customer"         # V10.3: OEM customer discoveries
     - "regional_collector"   # V10.3: Regional collector results
-  min_score: 0.5
+  min_score: 0.0
   exclude_name_keywords:
     - "withdrawn"
     - "suspended"
@@ -48,22 +48,23 @@ export:
   require_reachability: true
   require_reachability_level: "website"
   
-  # V10.3: Strategic regions exempt from website requirement
+  # V10.4: Strategic regions exempt from website requirement
   # These regions often have companies without online presence
   reachability_exempt_regions:
     - "north_africa"
     - "middle_east"
+    - "south_america"
   
   # GPT Fix #6: Region quotas to prevent over-representation
   # V10 Update: Added north_africa and middle_east as separate regions
   region_quotas:
-    south_america: 300    # Top focus region (Brazil, Argentina, Colombia, etc.)
-    north_africa: 150     # Tunisia, Egypt, Algeria, Morocco - growing market
-    north_america: 100    # Mexico, USA, Canada
-    europe: 100           # EU markets
-    middle_east: 75       # Turkey, Pakistan, India, Bangladesh
-    asia: 100             # China, Vietnam, Indonesia, etc.
-    other: 50             # Catch-all for unlisted regions
+    south_america: 500    # Top focus region (Brazil, Argentina, Colombia, etc.)
+    north_africa: 200     # Tunisia, Egypt, Algeria, Morocco - growing market
+    north_america: 150    # Mexico, USA, Canada
+    europe: 150           # EU markets
+    middle_east: 200      # Turkey, Pakistan, India, Bangladesh
+    asia: 200             # China, Vietnam, Indonesia, etc.
+    other: 100            # Catch-all for unlisted regions
 
 # =============================================================================
 # V10 HEURISTIC SCORING CONFIGURATION
@@ -214,12 +215,12 @@ v10_scoring_model:
   # Grade eşikleri
   grade_thresholds:
     grade_a:
-      min_score: 85
+      min_score: 80
       label: "Hot Lead"
       description: "Satışa hazır, yüksek potansiyel"
       action: "Hemen iletişim"
     grade_b:
-      min_score: 70
+      min_score: 65
       label: "Warm Lead"
       description: "Güçlü ilgi potansiyeli"
       action: "Nurturing + takip"

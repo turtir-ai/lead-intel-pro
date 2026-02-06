@@ -157,14 +157,30 @@ class EntityQualityGateV2:
     STENTER_OEM_MANUFACTURERS = {
         'brückner', 'bruckner', 'monforts', 'krantz', 'artos', 'santex', 
         'babcock', 'goller', 'dilmenler', 'benninger', 'ruckh', 'santex rimar',
-        'monforts textilmaschinen', 'brückner textile', 'brückner textil'
+        'monforts textilmaschinen', 'brückner textile', 'brückner textil',
+        # V10.4: Additional textile machine manufacturers (not our customers)
+        'karl mayer', 'karl mayer stoll', 'stoll', 'groz-beckert', 'groz beckert',
+        'demas', 'demas textile machinery', 'muratex', 'muratex textile machinery',
+        'lindauer dornier', 'dornier', 'tsudakoma', 'toyota industries',
+        'picanol', 'itema', 'rieter', 'saurer', 'trutzschler', 'trützschler',
+        'andritz', 'andritz küsters', 'küsters', 'kusters',
+        'mahlo', 'erhardt+leimer', 'erhardt leimer',
+        'thies', 'then', 'fong', 'fongs',
+        'juki', 'brother industries', 'shima seiki',
+        'uster technologies', 'uster',
+        'swegon', 'bräcker', 'elitex', 'zinser',
     }
     
     # News/media sites - NOT companies
     NEWS_MEDIA_SITES = {
         'texdata', 'texdata international', 'textileworld', 'textile world',
         'fibre2fashion', 'apparel resources', 'just-style', 'fashionunited',
-        'textile magazine', 'textile today', 'textile focus', 'textile excellence'
+        'textile magazine', 'textile today', 'textile focus', 'textile excellence',
+        # V10.4: Additional non-company entities
+        'heimtextil', 'techtextil', 'itma', 'itm istanbul', 'texprocess',
+        'domotex', 'intertextile', 'colombiatex', 'febratex',
+        'innovationintextiles', 'innovation in textiles',
+        'wtin', 'world textile information network',
     }
     
     # Parts supplier/trading company keywords - NOT ideal customers
