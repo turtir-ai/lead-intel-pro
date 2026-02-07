@@ -38,9 +38,15 @@ class DataCleaner:
         # Machinery suppliers (competitors, not customers)
         "machinery supplier", "machine supplier", "spare parts",
         "machinery dealer", "equipment dealer", "parts supplier",
-        # Organizations (not businesses)
+        # Organizations (not businesses) — V10.5: added association, federation, chamber
         "university", "institute", "research center", "academy",
         "government", "ministry", "directorate", "council",
+        "association", "federation", "chamber of commerce", "chamber",
+        "board of trade", "trade body", "trade union",
+        # V10.5: Media entities
+        "magazine", "journal", "newsletter", "media group",
+        "publishing", "news agency", "press agency",
+        "tv channel", "television", "radio",
         # Rugs/Carpets (different machinery, not stenter)
         "rug", "rugs", "carpet backing",
     ]
@@ -174,6 +180,12 @@ class DataCleaner:
             if indicator in text:
                 # Exception: "garment" is OK if combined with dyeing/finishing
                 if indicator == "garment" and any(x in text for x in ["dyeing", "finishing", "boyama", "terbiye", "tinturaria"]):
+                    continue
+                # V10.5: "institute" is OK if followed by "of technology" (e.g., IIT)
+                if indicator == "institute" and "technology" in text:
+                    continue
+                # V10.5: "chamber" alone should not filter "reaction chamber" etc.
+                if indicator == "chamber" and "reaction" in text:
                     continue
                 logger.debug(f"Non-customer indicator '{indicator}' found in: {company_name}")
                 return True

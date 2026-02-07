@@ -28,6 +28,7 @@ Kullanım:
 import argparse
 import csv
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -784,6 +785,9 @@ class V9Pipeline(V8Pipeline):
         self.stats["total_leads"] = len(leads)
         logger.info(f"📊 Loaded {len(leads)} total leads")
 
+        # V10.5: Sanitize data quality issues early
+        leads = self._sanitize_leads(leads)
+
         if limit:
             leads = leads[:limit]
             logger.info(f"⚠️ Limited to {len(leads)} leads for testing")
@@ -826,6 +830,104 @@ class V9Pipeline(V8Pipeline):
         self._print_summary()
         return output_path
 
+    # =========================================================================
+    # V10.5: DATA SANITIZATION
+    # =========================================================================
+
+    # Country normalization mapping (local names → English canonical)
+    COUNTRY_NORMALIZE = {
+        # Turkish
+        "türkiye": "Turkey", "turkiye": "Turkey", "turkei": "Turkey",
+        # Portuguese
+        "brasil": "Brazil", "brasilien": "Brazil",
+        # Spanish
+        "argentina": "Argentina", "república argentina": "Argentina",
+        "colombia": "Colombia", "república de colombia": "Colombia",
+        "perú": "Peru", "peru": "Peru",
+        "méxico": "Mexico", "mexico": "Mexico",
+        "ecuador": "Ecuador", "república del ecuador": "Ecuador",
+        "chile": "Chile",
+        # Arabic / French variants
+        "egypte": "Egypt", "مصر": "Egypt", "ägypten": "Egypt",
+        "maroc": "Morocco", "marokko": "Morocco", "المغرب": "Morocco",
+        "tunisie": "Tunisia", "tunesien": "Tunisia", "تونس": "Tunisia",
+        "algérie": "Algeria", "algerien": "Algeria",
+        # South Asian
+        "hindistan": "India", "indien": "India", "भारत": "India",
+        "bangladesch": "Bangladesh",
+        "sri lanka": "Sri Lanka", "ceylon": "Sri Lanka",
+        # Other
+        "vietnam": "Vietnam", "viet nam": "Vietnam",
+        "indonesien": "Indonesia", "endonezya": "Indonesia",
+        "pakistan": "Pakistan",
+        "thailand": "Thailand", "tayland": "Thailand",
+        "china": "China", "çin": "China",
+        "portugal": "Portugal", "portekiz": "Portugal",
+        "south korea": "South Korea", "güney kore": "South Korea",
+        "usa": "United States", "united states of america": "United States",
+        "uk": "United Kingdom", "england": "United Kingdom",
+        "italia": "Italy", "italien": "Italy", "italya": "Italy",
+        "spanien": "Spain", "españa": "Spain", "ispanya": "Spain",
+        "frankreich": "France", "fransa": "France",
+        "deutschland": "Germany", "almanya": "Germany",
+    }
+
+    def _sanitize_leads(self, leads: List[Dict]) -> List[Dict]:
+        """V10.5: Clean data quality issues early in the pipeline.
+        
+        Fixes:
+        - URL-as-country (58 leads had URLs in country field)
+        - Country normalization (Türkiye→Turkey, Brasil→Brazil etc.)
+        - Empty/whitespace company name cleanup
+        - NaN string literals
+        """
+        logger.info("\n" + "-" * 50)
+        logger.info("🧹 V10.5: DATA SANITIZATION")
+        logger.info("-" * 50)
+        
+        url_fixed = 0
+        country_normalized = 0
+        empty_removed = 0
+        
+        sanitized = []
+        for lead in leads:
+            # 1. Fix empty company names
+            company = str(lead.get("company", "")).strip()
+            if not company or company in ("nan", "None", ""):
+                empty_removed += 1
+                continue
+            lead["company"] = company
+            
+            # 2. Fix URL-as-country
+            country = str(lead.get("country", "")).strip()
+            if country.startswith("http") or country.startswith("www."):
+                lead["country"] = ""  # Will be filled later if possible from context
+                url_fixed += 1
+            
+            # 3. Fix NaN-string country values
+            if country in ("nan", "None", "null", ""):
+                lead["country"] = ""
+            
+            # 4. Normalize country name
+            country_val = str(lead.get("country", "")).strip()
+            country_lower = country_val.lower()
+            if country_lower in self.COUNTRY_NORMALIZE:
+                lead["country"] = self.COUNTRY_NORMALIZE[country_lower]
+                if lead["country"] != country_val:
+                    country_normalized += 1
+            
+            # 5. Clean up whitespace/newlines in company name
+            lead["company"] = re.sub(r'\s+', ' ', lead["company"]).strip()
+            
+            sanitized.append(lead)
+        
+        logger.info(f"Sanitization: {url_fixed} URL-as-country fixed, "
+                    f"{country_normalized} countries normalized, "
+                    f"{empty_removed} empty companies removed")
+        logger.info(f"Leads after sanitization: {len(sanitized)}")
+        
+        return sanitized
+
     def _phase4b_fast_filter(self, leads: List[Dict]) -> List[Dict]:
         logger.info("\n" + "-" * 50)
         logger.info("⚡ PHASE 4B: FAST FILTER")
@@ -858,17 +960,25 @@ class V9Pipeline(V8Pipeline):
         return passed
 
     def _consolidate_contacts(self, leads: List[Dict]) -> List[Dict]:
-        """V10.4: Consolidate email/phone from multiple sources into primary fields.
+        """V10.5: Consolidate email/phone from multiple sources into primary fields.
         
-        Sources: emails_extracted (deep_validator), emails (contact_enricher), email (collector)
+        Sources: emails_extracted (deep_validator), emails (contact_enricher), 
+                 email (collector), contact_email, info_email
         Target: email (primary), phone (primary)
+        
+        V10.5 improvements:
+        - Parse comma/semicolon-separated email strings
+        - Check more source fields (contact_email, info_email)
+        - Fix SCE boolean serialization
+        - Better phone parsing
         """
         logger.info("\n" + "-" * 50)
-        logger.info("📧 V10.4: CONTACT CONSOLIDATION")
+        logger.info("📧 V10.5: CONTACT CONSOLIDATION")
         logger.info("-" * 50)
         
         email_filled = 0
         phone_filled = 0
+        sce_fixed = 0
         
         # Email blocklist
         EMAIL_BLOCKLIST = {
@@ -879,6 +989,8 @@ class V9Pipeline(V8Pipeline):
         DOMAIN_BLOCKLIST = {
             'example.com', 'test.com', 'sentry.io', 'gravatar.com',
             'wp.com', 'wordpress.com', 'sharethis.com', 'addthis.com',
+            'facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com',
+            'youtube.com', 'google.com', 'googleusercontent.com',
         }
         
         def _clean_email(email_str: str) -> str:
@@ -886,12 +998,17 @@ class V9Pipeline(V8Pipeline):
             if not email_str or not isinstance(email_str, str):
                 return ""
             email_str = email_str.strip().lower()
-            if '@' not in email_str:
+            # Remove surrounding quotes/brackets
+            email_str = email_str.strip("'\"<>[] ")
+            if '@' not in email_str or '.' not in email_str.split('@')[-1]:
                 return ""
             local, domain = email_str.rsplit('@', 1)
             if local in EMAIL_BLOCKLIST:
                 return ""
             if domain in DOMAIN_BLOCKLIST:
+                return ""
+            # Basic format validation
+            if len(local) < 1 or len(domain) < 3:
                 return ""
             return email_str
         
@@ -902,7 +1019,7 @@ class V9Pipeline(V8Pipeline):
             if not val or (isinstance(val, float) and val != val):  # NaN check
                 return []
             val_str = str(val).strip()
-            if val_str in ('', '[]', 'nan', 'None', 'null'):
+            if val_str in ('', '[]', 'nan', 'None', 'null', '{}'):
                 return []
             # Parse string representation of list
             if val_str.startswith('['):
@@ -911,47 +1028,95 @@ class V9Pipeline(V8Pipeline):
                     return ast.literal_eval(val_str)
                 except:
                     pass
+            # V10.5: Handle comma/semicolon separated values
+            if ',' in val_str or ';' in val_str:
+                parts = re.split(r'[,;]\s*', val_str)
+                return [p.strip() for p in parts if p.strip()]
             # Single value
             return [val_str]
         
+        def _is_true(val) -> bool:
+            """Safely check boolean values (handles string serialization)."""
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, (int, float)):
+                return bool(val) and val == val  # NaN check
+            if isinstance(val, str):
+                return val.strip().lower() in ('true', '1', 'yes', 'evet')
+            return False
+        
         for lead in leads:
-            # Consolidate emails
+            # ── EMAIL CONSOLIDATION ──
             existing_email = str(lead.get('email', '')).strip()
             if existing_email in ('', 'nan', 'None', 'null'):
                 existing_email = ''
             
             if not existing_email:
-                # Try emails_extracted first (from deep_validator)
-                candidates = _extract_list(lead.get('emails_extracted', []))
-                if not candidates:
-                    candidates = _extract_list(lead.get('emails', []))
+                # V10.5: Check multiple source fields in priority order
+                email_sources = [
+                    'emails_extracted',   # From deep_validator (highest quality)
+                    'emails',             # From contact_enricher
+                    'contact_email',      # Some collectors provide this
+                    'info_email',         # Info@ type
+                ]
                 
-                for candidate in candidates:
+                found = False
+                for source_field in email_sources:
+                    if found:
+                        break
+                    candidates = _extract_list(lead.get(source_field, []))
+                    for candidate in candidates:
+                        clean = _clean_email(str(candidate))
+                        if clean:
+                            lead['email'] = clean
+                            email_filled += 1
+                            found = True
+                            break
+            
+            # V10.5: Also store all emails in a consolidated field
+            all_emails = set()
+            for field in ['email', 'emails_extracted', 'emails', 'contact_email', 'info_email']:
+                for candidate in _extract_list(lead.get(field, [])):
                     clean = _clean_email(str(candidate))
                     if clean:
-                        lead['email'] = clean
-                        email_filled += 1
-                        break
+                        all_emails.add(clean)
+            if all_emails:
+                lead['all_emails'] = '; '.join(sorted(all_emails))
             
-            # Consolidate phones
+            # ── PHONE CONSOLIDATION ──
             existing_phone = str(lead.get('phone', '')).strip()
             if existing_phone in ('', 'nan', 'None', 'null'):
                 existing_phone = ''
             
             if not existing_phone:
-                candidates = _extract_list(lead.get('phones_extracted', []))
-                if not candidates:
-                    candidates = _extract_list(lead.get('phones', []))
-                
-                for candidate in candidates:
-                    phone_str = str(candidate).strip()
-                    if phone_str and phone_str not in ('nan', 'None', '[]'):
-                        lead['phone'] = phone_str
-                        phone_filled += 1
+                phone_sources = ['phones_extracted', 'phones', 'contact_phone']
+                found_phone = False
+                for source_field in phone_sources:
+                    if found_phone:
                         break
+                    candidates = _extract_list(lead.get(source_field, []))
+                    for candidate in candidates:
+                        phone_str = str(candidate).strip()
+                        if phone_str and phone_str not in ('nan', 'None', '[]', '{}'):
+                            # Basic phone validation: must have digits
+                            digits = re.sub(r'[^\d]', '', phone_str)
+                            if len(digits) >= 7:  # Min 7 digits for a valid phone
+                                lead['phone'] = phone_str
+                                phone_filled += 1
+                                found_phone = True
+                                break
+            
+            # ── V10.5: SCE BOOLEAN FIX ──
+            sce_val = lead.get('sce_sales_ready')
+            if sce_val is not None:
+                was_string = isinstance(sce_val, str)
+                lead['sce_sales_ready'] = _is_true(sce_val)
+                if was_string and lead['sce_sales_ready']:
+                    sce_fixed += 1
         
         logger.info(f"Emails consolidated: {email_filled} leads gained email")
         logger.info(f"Phones consolidated: {phone_filled} leads gained phone")
+        logger.info(f"SCE booleans fixed: {sce_fixed}")
         
         return leads
 
@@ -1035,8 +1200,18 @@ class V9Pipeline(V8Pipeline):
         all_exportable = golden + qualified_pool
         logger.info(f"Export: {len(golden)} golden + {len(qualified_pool)} qualified pool = {len(all_exportable)} total")
         
-        # Standard exporter for CRM targets
+        # Standard exporter for CRM targets (applies quality filters)
         output_path = self.exporter.export_targets(all_exportable)
+
+        # V10.5: CRM-slim export uses the FILTERED targets_master data
+        # so crm_ready.csv and targets_master.csv are consistent
+        filtered_path = os.path.join(output_dir, 'targets_master.csv')
+        if os.path.exists(filtered_path):
+            filtered_df = pd.read_csv(filtered_path)
+            filtered_leads = filtered_df.to_dict('records')
+            self._export_crm_slim(filtered_leads, output_dir)
+        else:
+            self._export_crm_slim(all_exportable, output_dir)
 
         # Source ROI report
         source_roi_path = os.path.join(reports_dir, f"source_roi_{self.timestamp}.csv")
@@ -1044,6 +1219,79 @@ class V9Pipeline(V8Pipeline):
         logger.info(f"Source ROI report saved: {source_roi_path}")
 
         return output_path or ""
+
+    def _export_crm_slim(self, leads: List[Dict], output_dir: str) -> str:
+        """V10.5: Export a CRM-ready slim CSV with only essential columns.
+        
+        The full targets_master.csv has 141+ columns — unusable in most CRMs.
+        This creates a clean 20-column export for direct import into
+        HubSpot / Salesforce / Pipedrive / Google Sheets.
+        """
+        CRM_COLUMNS = [
+            # Identity
+            'company', 'country', 'city',
+            # Contact
+            'email', 'all_emails', 'phone', 'website',
+            'contact_name', 'contact_title',
+            # Qualification
+            'v10_score', 'v10_grade', 'is_golden', 'sce_sales_ready',
+            # Industry context
+            'source_type', 'oem_brand', 'certification',
+            # Evidence
+            'k1_count', 'k2_count',
+            'evidence_snippet',
+            # Outreach
+            'linkedin_xray',
+        ]
+        
+        slim_records = []
+        for lead in leads:
+            record = {}
+            for col in CRM_COLUMNS:
+                val = lead.get(col, '')
+                # NaN/None cleanup
+                if val is None or (isinstance(val, float) and val != val):
+                    val = ''
+                # Clean 'nan' string artifacts from CSV round-trips
+                if isinstance(val, str) and val.lower() in ('nan', 'none', 'null'):
+                    val = ''
+                record[col] = val
+            
+            # Build LinkedIn X-ray query if not present
+            if not record.get('linkedin_xray'):
+                company = str(record.get('company', '')).strip()
+                if company:
+                    record['linkedin_xray'] = (
+                        f'site:linkedin.com/in "{company}" '
+                        f'("textile" OR "finishing" OR "dyeing" OR "stenter")'
+                    )
+            
+            # Clean up evidence snippet (truncate long values)
+            snippet = str(record.get('evidence_snippet', ''))
+            if len(snippet) > 300:
+                record['evidence_snippet'] = snippet[:297] + '...'
+            
+            slim_records.append(record)
+        
+        if slim_records:
+            df = pd.DataFrame(slim_records, columns=CRM_COLUMNS)
+            # Sort by score descending
+            df['v10_score'] = pd.to_numeric(df['v10_score'], errors='coerce').fillna(0)
+            df = df.sort_values('v10_score', ascending=False)
+            
+            slim_path = os.path.join(output_dir, 'crm_ready.csv')
+            df.to_csv(slim_path, index=False)
+            logger.info(f"📋 CRM-slim export: {slim_path} ({len(df)} leads, {len(CRM_COLUMNS)} columns)")
+            
+            # Also export Grade A leads separately for priority outreach
+            grade_a = df[df['v10_grade'] == 'A']
+            if len(grade_a) > 0:
+                grade_a_path = os.path.join(output_dir, 'priority_outreach.csv')
+                grade_a.to_csv(grade_a_path, index=False)
+                logger.info(f"⭐ Priority outreach (Grade A): {grade_a_path} ({len(grade_a)} leads)")
+            
+            return slim_path
+        return ""
 
     def _calculate_evidence_score(self, lead: Dict) -> float:
         score = 0

@@ -8,7 +8,8 @@ from src.processors.schemas import QualityGate
 
 logger = get_logger(__name__)
 
-# V10.3: Country to region mapping for strategic regions
+# V10.5: Country to region mapping for strategic regions
+# Note: Country names normalized upstream by _sanitize_leads()
 COUNTRY_REGION_MAP = {
     # North Africa
     "Egypt": "north_africa",
@@ -18,11 +19,13 @@ COUNTRY_REGION_MAP = {
     "Libya": "north_africa",
     # Middle East / South Asia
     "Turkey": "middle_east",
-    "Türkiye": "middle_east",
     "Pakistan": "middle_east",
     "India": "middle_east",
     "Bangladesh": "middle_east",
     "Sri Lanka": "middle_east",
+    "Vietnam": "middle_east",
+    "Indonesia": "middle_east",
+    "Thailand": "middle_east",
     # South America
     "Brazil": "south_america",
     "Argentina": "south_america",
@@ -31,6 +34,16 @@ COUNTRY_REGION_MAP = {
     "Ecuador": "south_america",
     "Mexico": "south_america",
     "Chile": "south_america",
+    "Uruguay": "south_america",
+    "Paraguay": "south_america",
+    # Europe (secondary market)
+    "Portugal": "europe",
+    "Spain": "europe",
+    "Italy": "europe",
+    "Germany": "europe",
+    "France": "europe",
+    "United Kingdom": "europe",
+    "Greece": "europe",
 }
 
 
@@ -168,25 +181,18 @@ class Exporter:
         if not quotas or "country" not in df.columns:
             return df
         
-        # Define region mappings
-        SOUTH_AMERICA = {"brazil", "argentina", "colombia", "ecuador", "peru", "chile", "paraguay", "uruguay", "venezuela", "bolivia"}
-        NORTH_AMERICA = {"mexico", "usa", "united states", "canada"}
-        EUROPE = {"germany", "italy", "spain", "portugal", "france", "uk", "poland", "romania", "greece", "turkey"}
-        ASIA = {"india", "bangladesh", "pakistan", "vietnam", "indonesia", "china", "thailand", "sri lanka"}
-        AFRICA = {"egypt", "morocco", "tunisia", "south africa", "ethiopia", "kenya"}
-        
+        # V10.5: Use the canonical COUNTRY_REGION_MAP for consistent mapping
+        # Country names are normalized upstream by _sanitize_leads()
         def get_region(country):
-            c = (country or "").lower().strip()
-            if c in SOUTH_AMERICA:
-                return "south_america"
-            elif c in NORTH_AMERICA:
-                return "north_america"
-            elif c in EUROPE:
-                return "europe"
-            elif c in ASIA:
-                return "asia"
-            elif c in AFRICA:
-                return "africa"
+            c = (country or "").strip()
+            # Check canonical map first
+            if c in COUNTRY_REGION_MAP:
+                return COUNTRY_REGION_MAP[c]
+            # Fallback: case-insensitive lookup
+            c_lower = c.lower()
+            for name, region in COUNTRY_REGION_MAP.items():
+                if name.lower() == c_lower:
+                    return region
             return "other"
         
         df = df.copy()
